@@ -50,15 +50,18 @@ function Board() {
       (e) =>
         e.company.toLowerCase().includes(query) ||
         (e.role ?? "").toLowerCase().includes(query) ||
-        (e.round ?? "").toLowerCase().includes(query)
+        (e.round ?? "").toLowerCase().includes(query),
     );
   }, [events, q]);
 
   const grouped = useMemo(() => {
-    const g: Record<EventStatus, EventRow[]> = EVENT_STATUSES.reduce((acc, s) => {
-      acc[s.value] = [];
-      return acc;
-    }, {} as Record<EventStatus, EventRow[]>);
+    const g: Record<EventStatus, EventRow[]> = EVENT_STATUSES.reduce(
+      (acc, s) => {
+        acc[s.value] = [];
+        return acc;
+      },
+      {} as Record<EventStatus, EventRow[]>,
+    );
     filtered.forEach((e) => g[e.status].push(e));
     return g;
   }, [filtered]);
@@ -69,7 +72,7 @@ function Board() {
       await qc.cancelQueries({ queryKey: ["events"] });
       const prev = qc.getQueryData<EventRow[]>(["events"]);
       qc.setQueryData<EventRow[]>(["events"], (old) =>
-        (old ?? []).map((e) => (e.id === id ? { ...e, status } : e))
+        (old ?? []).map((e) => (e.id === id ? { ...e, status } : e)),
       );
       return { prev };
     },
@@ -83,18 +86,29 @@ function Board() {
   const active = activeId ? events.find((e) => e.id === activeId) : null;
 
   return (
-    <AppShell onNew={() => { setEditing(null); setDefaultStatus("UPCOMING"); setDrawerOpen(true); }}>
+    <AppShell
+      onNew={() => {
+        setEditing(null);
+        setDefaultStatus("UPCOMING");
+        setDrawerOpen(true);
+      }}
+    >
       <div className="p-4 md:p-6">
         <header className="mb-4 flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold">Board</h1>
-            <p className="text-sm text-muted-foreground">Drag cards between columns to update status</p>
+            <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-brass mb-1">
+              Pipeline
+            </p>
+            <h1 className="font-serif text-2xl font-semibold">The Board</h1>
+            <p className="text-sm text-muted-foreground">
+              Drag cards between columns to update status
+            </p>
           </div>
           <Input
             placeholder="Search company, role, round…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="w-full sm:w-64"
+            className="w-full sm:w-64 bg-card border-border"
           />
         </header>
 
@@ -118,8 +132,15 @@ function Board() {
                 status={s.value}
                 label={s.label}
                 items={grouped[s.value]}
-                onNew={() => { setEditing(null); setDefaultStatus(s.value); setDrawerOpen(true); }}
-                onCardClick={(ev) => { setEditing(ev); setDrawerOpen(true); }}
+                onNew={() => {
+                  setEditing(null);
+                  setDefaultStatus(s.value);
+                  setDrawerOpen(true);
+                }}
+                onCardClick={(ev) => {
+                  setEditing(ev);
+                  setDrawerOpen(true);
+                }}
               />
             ))}
           </div>
@@ -133,7 +154,12 @@ function Board() {
           </DragOverlay>
         </DndContext>
       </div>
-      <EventDrawer open={drawerOpen} onOpenChange={setDrawerOpen} event={editing} defaultStatus={defaultStatus} />
+      <EventDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        event={editing}
+        defaultStatus={defaultStatus}
+      />
     </AppShell>
   );
 }
@@ -155,19 +181,21 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`w-72 shrink-0 rounded-xl border bg-muted/30 flex flex-col ${
-        isOver ? "ring-2 ring-primary/60 bg-muted/60" : ""
+      className={`w-72 shrink-0 rounded-sm border border-border bg-card/40 flex flex-col ${
+        isOver ? "ring-1 ring-brass bg-card/70" : ""
       }`}
     >
-      <div className="p-3 flex items-center justify-between border-b">
+      <div className="p-3 flex items-center justify-between border-b border-border">
         <div className="flex items-center gap-2">
-          <span className={`h-2.5 w-2.5 rounded-full ${STATUS_COLORS[status]}`} />
-          <span className="font-medium text-sm">{label}</span>
+          <span className={`h-2 w-2 rounded-full ${STATUS_COLORS[status]}`} />
+          <span className="font-mono text-[10px] uppercase tracking-wider font-medium">
+            {label}
+          </span>
           <span className="text-xs text-muted-foreground">{items.length}</span>
         </div>
         <button
           onClick={onNew}
-          className="text-xs text-muted-foreground hover:text-primary"
+          className="text-xs text-muted-foreground hover:text-brass cursor-pointer"
           aria-label="Add event to column"
         >
           + Add
@@ -188,12 +216,7 @@ function Column({
 function DraggableCard({ event, onClick }: { event: EventRow; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: event.id });
   return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      className={isDragging ? "opacity-40" : ""}
-    >
+    <div ref={setNodeRef} {...attributes} {...listeners} className={isDragging ? "opacity-40" : ""}>
       <EventCard event={event} onClick={onClick} />
     </div>
   );

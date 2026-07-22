@@ -40,23 +40,23 @@ export const EVENT_STATUSES: { value: EventStatus; label: string }[] = [
 ];
 
 export const STATUS_COLORS: Record<EventStatus, string> = {
-  UPCOMING: "bg-slate-500",
-  PPT_DONE: "bg-sky-500",
-  OT_SCHEDULED: "bg-indigo-500",
-  OT_CLEARED: "bg-violet-500",
-  INTERVIEW_R1: "bg-amber-500",
-  INTERVIEW_R2: "bg-orange-500",
-  HR: "bg-pink-500",
-  OFFER: "bg-emerald-500",
-  REJECTED: "bg-rose-500",
-  GHOSTED: "bg-zinc-500",
+  UPCOMING: "bg-muted-foreground",
+  PPT_DONE: "bg-chart-4",
+  OT_SCHEDULED: "bg-brass",
+  OT_CLEARED: "bg-brass-bright",
+  INTERVIEW_R1: "bg-chart-5",
+  INTERVIEW_R2: "bg-chart-3",
+  HR: "bg-chart-1",
+  OFFER: "bg-ledger-bright",
+  REJECTED: "bg-stamp",
+  GHOSTED: "bg-border",
 };
 
 export const TYPE_COLORS: Record<EventType, string> = {
-  PPT: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
-  OT_ONLINE: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
-  OT_OFFLINE: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
-  INTERVIEW: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  PPT: "bg-chart-4/15 text-chart-4 border-chart-4/40",
+  OT_ONLINE: "bg-brass/15 text-brass border-brass/40",
+  OT_OFFLINE: "bg-ledger/20 text-ledger-bright border-ledger/40",
+  INTERVIEW: "bg-chart-5/15 text-chart-5 border-chart-5/40",
 };
 
 export function statusLabel(s: EventStatus) {

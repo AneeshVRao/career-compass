@@ -16,7 +16,10 @@ export const Route = createFileRoute("/list")({
       { title: "List · Placement Tracker" },
       { name: "description", content: "Full list of every tracked placement event." },
       { property: "og:title", content: "List · Placement Tracker" },
-      { property: "og:description", content: "Full sortable list of every tracked placement event." },
+      {
+        property: "og:description",
+        content: "Full sortable list of every tracked placement event.",
+      },
     ],
   }),
   component: ListView,
@@ -31,31 +34,44 @@ function ListView() {
   const rows = useMemo(() => {
     const query = q.trim().toLowerCase();
     return events
-      .filter((e) => !query || e.company.toLowerCase().includes(query) || (e.role ?? "").toLowerCase().includes(query))
+      .filter(
+        (e) =>
+          !query ||
+          e.company.toLowerCase().includes(query) ||
+          (e.role ?? "").toLowerCase().includes(query),
+      )
       .slice()
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
   }, [events, q]);
 
   return (
-    <AppShell onNew={() => { setEditing(null); setOpen(true); }}>
+    <AppShell
+      onNew={() => {
+        setEditing(null);
+        setOpen(true);
+      }}
+    >
       <div className="p-4 md:p-6 max-w-6xl mx-auto">
         <header className="mb-4 flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold">All events</h1>
-            <p className="text-sm text-muted-foreground">{rows.length} total</p>
+            <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-brass mb-1">
+              Docket
+            </p>
+            <h1 className="font-serif text-2xl font-semibold">Full docket</h1>
+            <p className="text-sm text-muted-foreground">{rows.length} entries on file</p>
           </div>
           <Input
             placeholder="Search…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="w-full sm:w-64"
+            className="w-full sm:w-64 bg-card border-border"
           />
         </header>
 
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden bg-card border-border">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+              <thead className="bg-muted/50 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="text-left px-3 py-2">Company</th>
                   <th className="text-left px-3 py-2">Type</th>
@@ -68,21 +84,31 @@ function ListView() {
                 {rows.map((e) => (
                   <tr
                     key={e.id}
-                    onClick={() => { setEditing(e); setOpen(true); }}
-                    className="border-t hover:bg-muted/40 cursor-pointer"
+                    onClick={() => {
+                      setEditing(e);
+                      setOpen(true);
+                    }}
+                    className="border-t border-border hover:bg-muted/40 cursor-pointer"
                   >
-                    <td className="px-3 py-2 font-medium">{e.company}</td>
+                    <td className="px-3 py-2 font-serif font-medium">{e.company}</td>
                     <td className="px-3 py-2">
-                      <span className={cn("text-[10px] px-1.5 py-0.5 rounded border", TYPE_COLORS[e.type])}>
+                      <span
+                        className={cn(
+                          "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-sm border",
+                          TYPE_COLORS[e.type],
+                        )}
+                      >
                         {typeLabel(e.type)}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {[e.round, e.role].filter(Boolean).join(" · ") || "—"}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap">{format(new Date(e.start_at), "MMM d, h:mm a")}</td>
+                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">
+                      {format(new Date(e.start_at), "MMM d, h:mm a")}
+                    </td>
                     <td className="px-3 py-2">
-                      <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 font-mono text-xs">
                         <span className={cn("h-2 w-2 rounded-full", STATUS_COLORS[e.status])} />
                         {statusLabel(e.status)}
                       </span>
@@ -91,7 +117,9 @@ function ListView() {
                 ))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-center py-10 text-muted-foreground">No events yet.</td>
+                    <td colSpan={5} className="text-center py-10 text-muted-foreground">
+                      No entries filed yet.
+                    </td>
                   </tr>
                 )}
               </tbody>

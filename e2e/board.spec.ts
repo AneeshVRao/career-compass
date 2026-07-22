@@ -27,7 +27,7 @@ test.describe("board: create and delete an event", () => {
     await page.goto("/board");
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: "New event" }).click();
+    await page.getByRole("button", { name: "New entry" }).click();
     await page.getByPlaceholder("e.g. Google").fill(TEST_COMPANY);
     await page.getByRole("button", { name: "Create" }).click();
 

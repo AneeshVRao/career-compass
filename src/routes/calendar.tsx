@@ -44,7 +44,10 @@ function CalendarView() {
     const end = endOfWeek(endOfMonth(cursor));
     const arr: Date[] = [];
     let d = start;
-    while (d <= end) { arr.push(d); d = addDays(d, 1); }
+    while (d <= end) {
+      arr.push(d);
+      d = addDays(d, 1);
+    }
     return arr;
   }, [cursor]);
 
@@ -59,28 +62,39 @@ function CalendarView() {
   }, [events]);
 
   return (
-    <AppShell onNew={() => { setEditing(null); setOpen(true); }}>
+    <AppShell
+      onNew={() => {
+        setEditing(null);
+        setOpen(true);
+      }}
+    >
       <div className="p-4 md:p-6">
         <header className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Calendar</h1>
-            <p className="text-sm text-muted-foreground">{format(cursor, "MMMM yyyy")}</p>
+            <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-brass mb-1">
+              Schedule
+            </p>
+            <h1 className="font-serif text-2xl font-semibold">{format(cursor, "MMMM yyyy")}</h1>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => setCursor(addMonths(cursor, -1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setCursor(new Date())}>Today</Button>
+            <Button variant="outline" size="sm" onClick={() => setCursor(new Date())}>
+              Today
+            </Button>
             <Button variant="outline" size="icon" onClick={() => setCursor(addMonths(cursor, 1))}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </header>
 
-        <Card className="overflow-hidden">
-          <div className="grid grid-cols-7 border-b bg-muted/50 text-xs font-medium">
-            {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => (
-              <div key={d} className="px-2 py-2 text-muted-foreground">{d}</div>
+        <Card className="overflow-hidden bg-card border-border">
+          <div className="grid grid-cols-7 border-b border-border bg-muted/50 text-[10px] font-mono uppercase tracking-wider">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              <div key={d} className="px-2 py-2 text-muted-foreground">
+                {d}
+              </div>
             ))}
           </div>
           <div className="grid grid-cols-7 auto-rows-[minmax(6rem,auto)]">
@@ -94,23 +108,28 @@ function CalendarView() {
                   key={key}
                   className={cn(
                     "border-b border-r p-1.5 min-h-24 flex flex-col gap-1",
-                    !inMonth && "bg-muted/30 text-muted-foreground"
+                    !inMonth && "bg-muted/30 text-muted-foreground",
                   )}
                 >
-                  <div className={cn(
-                    "text-xs font-medium h-5 w-5 rounded-full grid place-items-center",
-                    today && "bg-primary text-primary-foreground"
-                  )}>
+                  <div
+                    className={cn(
+                      "text-xs font-medium h-5 w-5 rounded-full grid place-items-center",
+                      today && "bg-primary text-primary-foreground",
+                    )}
+                  >
                     {format(day, "d")}
                   </div>
                   <div className="flex flex-col gap-1 overflow-hidden">
                     {dayEvents.slice(0, 3).map((e) => (
                       <button
                         key={e.id}
-                        onClick={() => { setEditing(e); setOpen(true); }}
+                        onClick={() => {
+                          setEditing(e);
+                          setOpen(true);
+                        }}
                         className={cn(
                           "text-[10px] px-1.5 py-0.5 rounded border truncate text-left",
-                          TYPE_COLORS[e.type]
+                          TYPE_COLORS[e.type],
                         )}
                         title={`${e.company} · ${typeLabel(e.type)} · ${format(new Date(e.start_at), "h:mm a")}`}
                       >
@@ -118,7 +137,9 @@ function CalendarView() {
                       </button>
                     ))}
                     {dayEvents.length > 3 && (
-                      <span className="text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        +{dayEvents.length - 3} more
+                      </span>
                     )}
                   </div>
                 </div>

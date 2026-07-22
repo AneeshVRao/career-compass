@@ -38,7 +38,8 @@ function SettingsView() {
   }, [data]);
 
   const mut = useMutation({
-    mutationFn: () => updateSettings({ reminder_email: email, reminders_enabled: enabled, from_email: from }),
+    mutationFn: () =>
+      updateSettings({ reminder_email: email, reminders_enabled: enabled, from_email: from }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["settings"] });
       toast.success("Settings saved");
@@ -50,11 +51,14 @@ function SettingsView() {
     <AppShell>
       <div className="p-4 md:p-8 max-w-2xl mx-auto">
         <header className="mb-6">
-          <h1 className="text-2xl font-bold">Settings</h1>
+          <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-brass mb-1">
+            Configuration
+          </p>
+          <h1 className="font-serif text-2xl font-semibold">Settings</h1>
           <p className="text-sm text-muted-foreground">Manage where and when reminder emails go.</p>
         </header>
 
-        <Card className="p-6 space-y-5">
+        <Card className="p-6 space-y-5 bg-card border-border">
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-base">24h email reminders</Label>
@@ -72,7 +76,8 @@ function SettingsView() {
             <Label>From address</Label>
             <Input value={from} onChange={(e) => setFrom(e.target.value)} />
             <p className="text-xs text-muted-foreground">
-              Use <code>onboarding@resend.dev</code> until you verify a domain in Resend. Verified domain? Use e.g. <code>Reminders &lt;alerts@yourdomain.com&gt;</code>.
+              Use <code>onboarding@resend.dev</code> until you verify a domain in Resend. Verified
+              domain? Use e.g. <code>Reminders &lt;alerts@yourdomain.com&gt;</code>.
             </p>
           </div>
 
@@ -83,12 +88,16 @@ function SettingsView() {
           </div>
         </Card>
 
-        <Card className="p-6 mt-4 text-sm text-muted-foreground">
+        <Card className="p-6 mt-4 text-sm text-muted-foreground bg-card border-border">
           <p className="font-medium text-foreground mb-2">How reminders work</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>A scheduled job runs every 15 minutes.</li>
-            <li>Any event starting in ~24 hours gets one reminder email, then is marked as sent.</li>
-            <li>Emails are sent via Resend using your <code>RESEND_API_KEY</code>.</li>
+            <li>
+              Any event starting in ~24 hours gets one reminder email, then is marked as sent.
+            </li>
+            <li>
+              Emails are sent via Resend using your <code>RESEND_API_KEY</code>.
+            </li>
           </ul>
         </Card>
       </div>

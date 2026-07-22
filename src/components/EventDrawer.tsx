@@ -2,13 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -167,23 +161,36 @@ export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props)
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{editing ? "Edit event" : "New event"}</SheetTitle>
+          <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-brass mb-0.5">
+            {editing ? "Existing entry" : "New entry"}
+          </p>
+          <SheetTitle className="font-serif text-xl">
+            {editing ? event?.company || "Edit entry" : "Log a new event"}
+          </SheetTitle>
         </SheetHeader>
 
         <div className="grid gap-4 py-4 px-1">
           <div className="grid gap-2">
             <Label>Company *</Label>
-            <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Google" />
+            <Input
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              placeholder="e.g. Google"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Type *</Label>
               <Select value={type} onValueChange={(v) => setType(v as EventType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {EVENT_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -191,10 +198,14 @@ export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props)
             <div className="grid gap-2">
               <Label>Status</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as EventStatus)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {EVENT_STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -204,23 +215,39 @@ export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props)
           {type === "INTERVIEW" && (
             <div className="grid gap-2">
               <Label>Round</Label>
-              <Input value={round} onChange={(e) => setRound(e.target.value)} placeholder="e.g. Tech R1, HR" />
+              <Input
+                value={round}
+                onChange={(e) => setRound(e.target.value)}
+                placeholder="e.g. Tech R1, HR"
+              />
             </div>
           )}
 
           <div className="grid gap-2">
             <Label>Role / Profile</Label>
-            <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. SDE Intern" />
+            <Input
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              placeholder="e.g. SDE Intern"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Start *</Label>
-              <Input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
+              <Input
+                type="datetime-local"
+                value={startAt}
+                onChange={(e) => setStartAt(e.target.value)}
+              />
             </div>
             <div className="grid gap-2">
               <Label>End</Label>
-              <Input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} />
+              <Input
+                type="datetime-local"
+                value={endAt}
+                onChange={(e) => setEndAt(e.target.value)}
+              />
             </div>
           </div>
 
@@ -228,10 +255,14 @@ export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props)
             <div className="grid gap-2">
               <Label>Mode</Label>
               <Select value={mode} onValueChange={(v) => setMode(v as EventMode)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {EVENT_MODES.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -239,10 +270,14 @@ export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props)
             <div className="grid gap-2">
               <Label>Priority</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as EventPriority)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {EVENT_PRIORITIES.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -251,22 +286,38 @@ export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props)
 
           <div className="grid gap-2">
             <Label>Location / Venue</Label>
-            <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. DC-2, Room 305" />
+            <Input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. DC-2, Room 305"
+            />
           </div>
 
           <div className="grid gap-2">
             <Label>Link (meet / test URL)</Label>
-            <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." />
+            <Input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://..."
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>CTC / Stipend</Label>
-              <Input value={ctc} onChange={(e) => setCtc(e.target.value)} placeholder="e.g. 18 LPA" />
+              <Input
+                value={ctc}
+                onChange={(e) => setCtc(e.target.value)}
+                placeholder="e.g. 18 LPA"
+              />
             </div>
             <div className="grid gap-2">
               <Label>Resume version</Label>
-              <Input value={resumeVersion} onChange={(e) => setResumeVersion(e.target.value)} placeholder="e.g. v3-sde" />
+              <Input
+                value={resumeVersion}
+                onChange={(e) => setResumeVersion(e.target.value)}
+                placeholder="e.g. v3-sde"
+              />
             </div>
           </div>
 
@@ -279,7 +330,9 @@ export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props)
                     placeholder="Name"
                     value={c.name}
                     onChange={(e) =>
-                      setContacts((prev) => prev.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
+                      setContacts((prev) =>
+                        prev.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                      )
                     }
                   />
                   <Input
@@ -287,7 +340,7 @@ export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props)
                     value={c.email ?? c.phone ?? ""}
                     onChange={(e) =>
                       setContacts((prev) =>
-                        prev.map((x, j) => (j === i ? { ...x, email: e.target.value } : x))
+                        prev.map((x, j) => (j === i ? { ...x, email: e.target.value } : x)),
                       )
                     }
                   />
@@ -317,7 +370,11 @@ export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props)
 
           <div className="grid gap-2">
             <Label>Outcome notes</Label>
-            <Textarea rows={3} value={outcomeNotes} onChange={(e) => setOutcomeNotes(e.target.value)} />
+            <Textarea
+              rows={3}
+              value={outcomeNotes}
+              onChange={(e) => setOutcomeNotes(e.target.value)}
+            />
           </div>
         </div>
 
@@ -336,7 +393,9 @@ export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props)
             <span />
           )}
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
             <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
               {saveMut.isPending ? "Saving..." : editing ? "Save" : "Create"}
             </Button>

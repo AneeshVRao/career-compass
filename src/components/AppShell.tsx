@@ -1,14 +1,13 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, KanbanSquare, Calendar, List, Settings, Briefcase, Plus } from "lucide-react";
+import { LayoutDashboard, KanbanSquare, Calendar, List, Settings, Stamp, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import type { ReactNode } from "react";
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/board", label: "Board", icon: KanbanSquare },
-  { to: "/calendar", label: "Calendar", icon: Calendar },
-  { to: "/list", label: "List", icon: List },
+  { to: "/", label: "Overview", icon: LayoutDashboard },
+  { to: "/board", label: "Pipeline", icon: KanbanSquare },
+  { to: "/calendar", label: "Schedule", icon: Calendar },
+  { to: "/list", label: "Docket", icon: List },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -16,22 +15,33 @@ export function AppShell({ children, onNew }: { children: ReactNode; onNew?: () 
   const { location } = useRouterState();
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      <aside className="hidden md:flex w-60 shrink-0 flex-col border-r bg-sidebar p-4 gap-1">
-        <div className="flex items-center gap-2 px-2 py-3 mb-2">
-          <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground grid place-items-center">
-            <Briefcase className="h-5 w-5" />
+      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-sidebar border-r border-sidebar-border">
+        <div className="flex items-center gap-3 px-5 py-6 border-b border-sidebar-border/70">
+          <div className="h-10 w-10 rounded-sm border border-brass/50 text-brass grid place-items-center">
+            <Stamp className="h-5 w-5" strokeWidth={1.5} />
           </div>
           <div>
-            <div className="font-semibold leading-tight">Placement</div>
-            <div className="text-xs text-muted-foreground leading-tight">Tracker</div>
+            <div className="font-serif text-lg leading-tight text-sidebar-foreground">
+              Placement
+            </div>
+            <div className="text-[10px] font-mono tracking-[0.25em] text-brass/80 leading-tight">
+              DOSSIER
+            </div>
           </div>
         </div>
+
         {onNew && (
-          <Button onClick={onNew} className="mb-3 w-full justify-start gap-2" size="sm">
-            <Plus className="h-4 w-4" /> New event
-          </Button>
+          <div className="px-4 pt-4">
+            <button
+              onClick={onNew}
+              className="w-full flex items-center justify-center gap-2 rounded-sm border border-brass/50 text-brass px-3 py-2 text-xs font-mono tracking-wider uppercase hover:bg-brass hover:text-primary-foreground transition-colors cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" /> New entry
+            </button>
+          </div>
         )}
-        <nav className="flex flex-col gap-1">
+
+        <nav className="flex flex-col mt-5 px-2">
           {NAV.map(({ to, label, icon: Icon }) => {
             const active = location.pathname === to;
             return (
@@ -39,39 +49,51 @@ export function AppShell({ children, onNew }: { children: ReactNode; onNew?: () 
                 key={to}
                 to={to}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  "group flex items-center gap-3 border-l-2 px-4 py-2.5 text-sm transition-colors",
                   active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60"
+                    ? "border-brass bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "border-transparent text-sidebar-foreground/60 hover:border-brass/40 hover:text-sidebar-foreground",
                 )}
               >
-                <Icon className="h-4 w-4" />
-                {label}
+                <Icon
+                  className={cn("h-4 w-4 shrink-0", active && "text-brass")}
+                  strokeWidth={1.75}
+                />
+                <span className="font-mono text-[11px] tracking-[0.15em] uppercase">{label}</span>
               </Link>
             );
           })}
         </nav>
+
+        <div className="mt-auto px-5 py-4 border-t border-sidebar-border/70">
+          <p className="text-[10px] font-mono text-muted-foreground tracking-wide">
+            Season in progress
+          </p>
+        </div>
       </aside>
 
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 inset-x-0 z-30 flex items-center justify-between bg-sidebar border-b px-3 py-2">
+      <div className="md:hidden fixed top-0 inset-x-0 z-30 flex items-center justify-between bg-sidebar border-b border-sidebar-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-md bg-primary text-primary-foreground grid place-items-center">
-            <Briefcase className="h-4 w-4" />
+          <div className="h-8 w-8 rounded-sm border border-brass/50 text-brass grid place-items-center">
+            <Stamp className="h-4 w-4" strokeWidth={1.5} />
           </div>
-          <span className="font-semibold">Placement</span>
+          <span className="font-serif text-base">Placement</span>
         </div>
         {onNew && (
-          <Button size="sm" onClick={onNew} className="gap-1">
-            <Plus className="h-4 w-4" /> New
-          </Button>
+          <button
+            onClick={onNew}
+            className="flex items-center gap-1 rounded-sm border border-brass/50 text-brass px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" /> New
+          </button>
         )}
       </div>
 
       <main className="flex-1 min-w-0 pt-14 md:pt-0">
         {children}
         {/* Mobile bottom nav */}
-        <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-sidebar border-t grid grid-cols-5">
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-sidebar border-t border-sidebar-border grid grid-cols-5">
           {NAV.map(({ to, label, icon: Icon }) => {
             const active = location.pathname === to;
             return (
@@ -79,11 +101,11 @@ export function AppShell({ children, onNew }: { children: ReactNode; onNew?: () 
                 key={to}
                 to={to}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 py-2 text-xs",
-                  active ? "text-primary" : "text-muted-foreground"
+                  "flex flex-col items-center gap-1 py-2.5 text-[9px] font-mono uppercase tracking-wide",
+                  active ? "text-brass" : "text-muted-foreground",
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" strokeWidth={1.75} />
                 {label}
               </Link>
             );

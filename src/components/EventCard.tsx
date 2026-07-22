@@ -18,53 +18,67 @@ export function EventCard({
     <div
       onClick={onClick}
       className={cn(
-        "group rounded-lg border bg-card p-3 shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer",
-        compact && "p-2"
+        "group flex items-stretch rounded-sm border border-graphite/15 bg-parchment text-graphite shadow-sm",
+        "hover:shadow-md hover:border-brass/50 transition-all cursor-pointer overflow-hidden",
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span
-              className={cn(
-                "text-[10px] font-medium px-1.5 py-0.5 rounded border",
-                TYPE_COLORS[event.type]
-              )}
-            >
-              {typeLabel(event.type)}
-            </span>
-            {event.priority === "HIGH" && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300">
-                HIGH
+      <div className={cn("min-w-0 flex-1", compact ? "p-2" : "p-3")}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+              <span
+                className={cn(
+                  "text-[9px] font-mono uppercase tracking-wider font-medium px-1.5 py-0.5 rounded-sm border",
+                  TYPE_COLORS[event.type],
+                )}
+              >
+                {typeLabel(event.type)}
               </span>
+              {event.priority === "HIGH" && (
+                <span className="text-[8px] font-mono uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full border border-stamp text-stamp -rotate-3">
+                  Priority
+                </span>
+              )}
+            </div>
+            <div className="font-serif font-semibold text-[15px] leading-tight truncate">
+              {event.company}
+            </div>
+            {event.role && (
+              <div className="text-xs text-graphite/60 truncate mt-0.5">{event.role}</div>
+            )}
+            {event.round && event.type === "INTERVIEW" && (
+              <div className="text-xs text-graphite/60 truncate">{event.round}</div>
             )}
           </div>
-          <div className="font-semibold text-sm truncate">{event.company}</div>
-          {event.role && <div className="text-xs text-muted-foreground truncate">{event.role}</div>}
-          {event.round && event.type === "INTERVIEW" && (
-            <div className="text-xs text-muted-foreground truncate">{event.round}</div>
-          )}
+          {dragHandle}
         </div>
-        {dragHandle}
-      </div>
-      {!compact && (
-        <div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-3 w-3" />
-            {format(new Date(event.start_at), "MMM d, h:mm a")}
+        {!compact && (
+          <div className="mt-2.5 pt-2 border-t border-dashed border-graphite/20 flex flex-col gap-1 text-[11px] font-mono text-graphite/65">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3 w-3 shrink-0" />
+              {format(new Date(event.start_at), "MMM d · h:mm a")}
+            </div>
+            {event.location && (
+              <div className="flex items-center gap-1.5 truncate">
+                <MapPin className="h-3 w-3 shrink-0" />{" "}
+                <span className="truncate">{event.location}</span>
+              </div>
+            )}
+            {event.link && (
+              <div className="flex items-center gap-1.5 truncate">
+                <LinkIcon className="h-3 w-3 shrink-0" />{" "}
+                <span className="truncate">{event.link}</span>
+              </div>
+            )}
           </div>
-          {event.location && (
-            <div className="flex items-center gap-1.5 truncate">
-              <MapPin className="h-3 w-3 shrink-0" /> <span className="truncate">{event.location}</span>
-            </div>
-          )}
-          {event.link && (
-            <div className="flex items-center gap-1.5 truncate">
-              <LinkIcon className="h-3 w-3 shrink-0" /> <span className="truncate">{event.link}</span>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
+
+      <div className="relative w-8 shrink-0 border-l border-dashed border-graphite/25 bg-graphite/[0.03] flex items-center justify-center">
+        <span className="rotate-180 [writing-mode:vertical-rl] font-mono text-[9px] tracking-[0.2em] uppercase text-graphite/50 font-medium">
+          {typeLabel(event.type)}
+        </span>
+      </div>
     </div>
   );
 }
