@@ -2,6 +2,22 @@
 
 A short log of non-obvious calls made and why, so a future session doesn't have to re-litigate them from scratch. Newest first. Dates are when the decision was made, not necessarily when it shipped.
 
+## 2026-07-23 — Switched to a fresh, self-created Supabase project
+
+**Decision**: stop using `irzxntglqqwyrvmkxkpy` (the original project, provisioned through Lovable Cloud) and move to a new project, `iqqkvnjwrgyiigafxsqp`, created directly with no Lovable involvement.
+
+**Why**: closes out the "Supabase access review" open item from the previous session's `docs/STATUS.md` in the simplest possible way — rather than auditing and possibly rotating keys on a project Lovable Cloud originally provisioned, just start clean on a project that never had that history. Confirmed the new service-role JWT decodes to `{"role":"service_role","ref":"iqqkvnjwrgyiigafxsqp",...}` before trusting it.
+
+**Consequence**: the new project starts with zero schema — both migrations need to be (re-)applied to it. The old project's data (5 seed events from earlier testing) does not carry over; this is a genuinely fresh start, not a migration of existing data.
+
+## 2026-07-23 — Cron secret storage, take two: a private table, not `current_setting()`
+
+**Decision**: replaced the `current_setting('app.reminder_cron_secret')` + `ALTER DATABASE ... SET` approach with a `private.app_secrets` key-value table, read via a subquery inside the `cron.schedule(...)` job body instead.
+
+**Why**: the original approach doesn't actually work on Supabase's hosted Postgres. Running `ALTER DATABASE postgres SET app.reminder_cron_secret = '...'` in the SQL editor fails with `ERROR: 42501: permission denied to set parameter "app.reminder_cron_secret"` — setting arbitrary custom GUC parameters at the database level requires true superuser privileges, which Supabase intentionally doesn't grant even to the `postgres` role inside its own SQL editor. A private table sidesteps this entirely: `CREATE TABLE`/`INSERT` are ordinary DML well within normal privileges, and the table lives in a `private` schema that's never exposed via PostgREST, with no grants given to `anon`/`authenticated` — so it's no less secure than the GUC approach would have been, just achieved differently. Full schema in `docs/DATABASE.md`.
+
+**Alternative considered**: Supabase Vault (the platform's built-in `pgsodium`-backed encrypted secrets store, `vault.secrets`/`vault.decrypted_secrets`). Would also work and is arguably more "proper," but adds setup complexity (managing encryption keys, a less familiar API) that isn't justified for a personal project's one low-stakes secret — a plain unexposed table already achieves the actual goal (keep the secret out of git, unreachable by the app's normal RLS-scoped clients).
+
 ## 2026-07-22 — Reminder cron auth: shared-secret header, not full HMAC
 
 **Decision**: guard `/api/public/run-reminders` with a single shared-secret header (`x-reminder-cron-secret`), compared with `node:crypto`'s `timingSafeEqual`, rather than a full HMAC-signed request scheme.
@@ -10,13 +26,15 @@ A short log of non-obvious calls made and why, so a future session doesn't have 
 
 **Alternative considered**: full HMAC with a timestamp + nonce. Rejected as over-engineering for the actual threat model.
 
-## 2026-07-22 — Cron secret storage: Postgres `current_setting()`, not a literal in the migration file
+## 2026-07-22 — Cron secret storage: Postgres `current_setting()`, not a literal in the migration file — **superseded, see 2026-07-23 below**
 
 **Decision**: the reminder cron's secret is never committed to git in any form. The migration reads it via `current_setting('app.reminder_cron_secret')`, and the actual value is set once by hand via `ALTER DATABASE postgres SET app.reminder_cron_secret = '...'` run directly in the Supabase SQL editor.
 
 **Why**: a secret literal in a migration file lives in git history forever, even if later rotated or the file edited — removing it from a future commit doesn't remove it from history. The one-time manual step is a small amount of extra setup friction in exchange for the secret genuinely never touching a commit.
 
 **Alternative considered**: just write the secret into the migration file directly, since this is a personal single-user project with lower stakes than a team codebase. Rejected anyway — the `current_setting()` approach costs almost nothing extra and avoids a bad habit.
+
+**What actually happened**: this didn't work in practice. See the entry directly below.
 
 ## 2026-07-22 — Deploy target: nitro `node-server` preset, not Cloudflare Workers
 

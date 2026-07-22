@@ -5,7 +5,7 @@ Schema reference for the Supabase/Postgres backend. Source of truth is always `s
 ## Migrations (chronological)
 
 1. **`20260722131142_8274acba-a280-46aa-83b5-f2549fdcb9b8.sql`** — the original schema: creates the four enums, the `events` and `settings` tables, RLS policies, indexes, the `updated_at` trigger, and enables the `pg_cron`/`pg_net` extensions (but does not yet schedule any cron job — see below).
-2. **`20260722201059_schedule_reminder_cron.sql`** — adds the actual `cron.schedule(...)` job that invokes the reminder endpoint every 15 minutes. Ships with a `<PROD_APP_URL>` placeholder that must be filled in by hand once a deploy target exists (see `docs/DEPLOYMENT.md`), and expects a `current_setting('app.reminder_cron_secret')` value to already be set via a manual, never-committed `ALTER DATABASE` statement.
+2. **`20260722201059_schedule_reminder_cron.sql`** — creates a `private.app_secrets` table (see below) and the actual `cron.schedule(...)` job that invokes the reminder endpoint every 15 minutes. Ships with a `<PROD_APP_URL>` placeholder that must be filled in by hand once a deploy target exists (see `docs/DEPLOYMENT.md`), and reads its auth header from a row in `private.app_secrets` that must be inserted by hand first, never committed.
 
 ## Enums
 
@@ -58,6 +58,17 @@ Single-row table (no enforced constraint preventing a second row, but the app on
 | `reminders_enabled` | `boolean` | `true` |
 | `from_email` | `text` | `'Placement Tracker <onboarding@resend.dev>'` |
 | `created_at` / `updated_at` | `timestamptz` | `now()` |
+
+## `private.app_secrets` table
+
+A small key-value table in its own `private` schema (not `public`), created by the second migration. Holds the reminder cron's shared secret so it can be read from inside a `pg_cron` job's SQL body:
+
+| Column | Type |
+|---|---|
+| `key` | `text` (PK) |
+| `value` | `text` |
+
+Exists specifically because Supabase's hosted Postgres refuses `ALTER DATABASE`/`ALTER ROLE ... SET` for custom GUC parameters (`permission denied to set parameter`, requires true superuser) — see `docs/DECISIONS.md` for the full story. No `GRANT` is given to `anon`/`authenticated`, and `private` is never added to PostgREST's exposed-schemas list, so this table is unreachable via the app's normal REST API paths regardless — only direct SQL access (the SQL editor, or a role like `postgres`/`service_role` that owns/bypasses table-level restrictions) can read it. Currently holds exactly one row: `key = 'reminder_cron_secret'`.
 
 ## Row Level Security
 
