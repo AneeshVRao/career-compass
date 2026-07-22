@@ -1,29 +1,62 @@
-# Welcome to your Lovable project
+# Placement Tracker
 
-This project was built with [Lovable](https://lovable.dev).
+A personal, single-user tracker for campus placement events (PPTs, online/offline tests, and interview rounds), with 24-hour-before email reminders.
 
-## Build with Lovable
+## Event model (event-centric)
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Each entry = one event. Fields:
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Company** (text)
+- **Type**: PPT · OT (Online) · OT (Offline/Data-Center) · Interview
+- **Round** (text, e.g. "Tech R1", "HR") — only for Interview
+- **Role / Profile** (text)
+- **Start date & time**, **End time** (optional)
+- **Mode**: Online · Offline · Hybrid
+- **Location / Link** (venue, meet link, or DC name)
+- **Status** (see pipeline below)
+- **Priority** (Low / Med / High)
+- **Contacts** (POC name, email, phone — repeatable)
+- **CTC / Stipend** (optional)
+- **Resume version** (text tag)
+- **Prep notes / Description** (markdown)
+- **Outcome notes** (post-event)
+- **Reminder sent?** (auto, internal)
+
+## Pipeline (kanban columns)
+
+`Upcoming → PPT Done → OT Scheduled → OT Cleared → Interview R1 → Interview R2 → HR → Offer → Rejected → Ghosted`
+
+## Views
+
+1. **Kanban** (`/board`) — drag between statuses, filter by company/role/round.
+2. **Calendar** (`/calendar`) — month view, color-coded by type, click to open.
+3. **Dashboard** (`/`) — counts by status, conversion funnel, events this week, upcoming next 7 days.
+4. **List / Table** (`/list`) — sortable, searchable, quick edit.
+5. **Settings** (`/settings`) — reminder recipient email, sender address, on/off toggle.
+
+## Reminders (24h before each event)
+
+- **Trigger**: a `pg_cron` job hits the `/api/public/run-reminders` route every 15 minutes; the route finds events starting in ~24h with `reminder_sent = false`, sends an email via Resend, and flips the flag.
+- **Auth**: the route requires a shared-secret header (`x-reminder-cron-secret`, checked against `REMINDER_CRON_SECRET`) — see `supabase/migrations/` for how the cron job is wired up.
+- **Idempotent**: one reminder per event, guarded by `reminder_sent`.
+
+## Stack
+
+TanStack Start (file-based router + SSR) + TypeScript + React 19 + Tailwind v4 + shadcn/ui + TanStack Query + Supabase (Postgres) + Resend (email) + dnd-kit (kanban) + Recharts (dashboard).
 
 ## Development
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Package manager is [bun](https://bun.sh).
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+bun install
+bun run dev            # starts the dev server on http://localhost:8080
+bun run build           # production build
+bun run lint            # eslint .
+bun run format          # prettier --write .
+bun run test            # vitest run
+bun run test:coverage   # vitest run --coverage
+bun run test:e2e        # playwright test
 ```
 
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+See `CLAUDE.md` for architecture notes and repository conventions.

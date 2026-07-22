@@ -8,17 +8,24 @@ test.describe("board: create and delete an event", () => {
     // partway through), find and delete it so no leftover row lingers in the
     // real single-user database.
     await page.goto("/board");
+    await page.waitForLoadState("networkidle");
     const card = page.getByText(TEST_COMPANY, { exact: true }).first();
     if (await card.isVisible().catch(() => false)) {
-      page.once("dialog", (dialog) => dialog.accept());
       await card.click();
-      await page.getByRole("button", { name: "Delete" }).click();
-      await expect(page.getByText(TEST_COMPANY, { exact: true })).toHaveCount(0);
+      const deleteButton = page.getByRole("button", { name: "Delete" });
+      await expect(deleteButton).toBeVisible();
+      await page.waitForTimeout(600); // let the Sheet's open animation settle
+      page.once("dialog", (dialog) => dialog.accept());
+      await deleteButton.click();
+      await expect(page.getByText(TEST_COMPANY, { exact: true })).toHaveCount(0, {
+        timeout: 15000,
+      });
     }
   });
 
   test("creating an event shows it on the board, deleting removes it", async ({ page }) => {
     await page.goto("/board");
+    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "New event" }).click();
     await page.getByPlaceholder("e.g. Google").fill(TEST_COMPANY);
@@ -26,11 +33,15 @@ test.describe("board: create and delete an event", () => {
 
     const card = page.getByText(TEST_COMPANY, { exact: true }).first();
     await expect(card).toBeVisible();
+    await page.waitForTimeout(300); // let the post-create refetch/re-render settle
 
-    page.once("dialog", (dialog) => dialog.accept());
     await card.click();
-    await page.getByRole("button", { name: "Delete" }).click();
+    const deleteButton = page.getByRole("button", { name: "Delete" });
+    await expect(deleteButton).toBeVisible();
+    await page.waitForTimeout(600); // let the Sheet's open animation settle
+    page.once("dialog", (dialog) => dialog.accept());
+    await deleteButton.click();
 
-    await expect(page.getByText(TEST_COMPANY, { exact: true })).toHaveCount(0);
+    await expect(page.getByText(TEST_COMPANY, { exact: true })).toHaveCount(0, { timeout: 15000 });
   });
 });
