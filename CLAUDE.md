@@ -18,9 +18,20 @@ bun run build:dev    # vite build --mode development
 bun run preview
 bun run lint         # eslint .
 bun run format       # prettier --write .
+bun run test         # vitest run
+bun run test:watch   # vitest (watch mode)
+bun run test:coverage  # vitest run --coverage
+bun run test:e2e     # playwright test (starts its own dev server on :8080)
 ```
 
-There is no test suite configured in this repo (no vitest/jest/playwright wired up).
+Run a single Vitest file/test: `bunx vitest run src/lib/domain.test.ts -t "returns the label"`. Run a single Playwright spec: `bunx playwright test e2e/board.spec.ts`.
+
+### Testing setup
+- `vitest.config.ts` is standalone (not merged into `vite.config.ts`, which is a wrapped config with no documented `test` passthrough — see below). Coverage is scoped to `src/lib/domain.ts`, `src/lib/reminders.ts`, `src/lib/events-api.ts` with an 80% threshold on all four metrics — this is a deliberate narrow scope, not the whole `src/` tree; extend `coverage.include` deliberately if adding more testable pure logic to `src/lib`.
+- Test files are colocated (`*.test.ts` next to source), not in a `__tests__` directory.
+- `src/lib/events-api.test.ts` mocks `@/integrations/supabase/client` with a hand-rolled chainable/thenable query-builder mock (`makeBuilder`/`queueFromResults`) — extend that pattern rather than reaching for a Supabase test-double library.
+- **E2E tests run against the real single-user Supabase project** — there is no separate test database. `e2e/board.spec.ts` tags any data it creates with `company: "__e2e_test__"` and deletes it in `afterEach` (which also runs cleanup if the test itself failed partway). Follow the same tag-and-clean pattern for any new E2E test that writes data.
+- Playwright's `webServer` in `playwright.config.ts` runs `bun run dev` itself and expects port `8080` (Vite's default here) — don't hardcode a different port without checking `bun run dev`'s actual output first.
 
 ## Architecture
 
@@ -51,7 +62,7 @@ Pages: `/` (dashboard/stats), `/board` (kanban), `/calendar` (month view), `/lis
 Kanban statuses are a fixed pipeline (`UPCOMING → PPT_DONE → OT_SCHEDULED → OT_CLEARED → INTERVIEW_R1 → INTERVIEW_R2 → HR → OFFER / REJECTED / GHOSTED`), defined in both the Postgres enum (`supabase/migrations/`) and `EVENT_STATUSES` in `domain.ts` — changing one requires a matching migration + `domain.ts` update + regenerating `types.ts`.
 
 ### Reminder pipeline
-`src/routes/api/public/run-reminders.ts` is a POST/GET server route (service-role Supabase client) that: reads the single-row `settings` table, finds events with `reminder_sent = false` starting 23–25h out, emails each via the Resend HTTP API, then flips `reminder_sent`. It's meant to be invoked every 15 minutes by `pg_cron` + `pg_net` (both extensions are enabled in the migration), but **no `cron.schedule(...)` job has actually been created yet** — see the planning notes below.
+`src/routes/api/public/run-reminders.ts` is a POST/GET server route (uses `supabaseAdmin` from `client.server.ts`) that: reads the single-row `settings` table, finds events with `reminder_sent = false` starting 23–25h out (via `reminderWindow()` in `src/lib/reminders.ts`), emails each via the Resend HTTP API (`renderReminderEmail()`), then flips `reminder_sent`. The route is guarded by a `REMINDER_CRON_SECRET` shared-secret header check (`x-reminder-cron-secret`, timing-safe compare, fails closed if the env var isn't set) — it is **not** a truly public endpoint despite the `api/public/` path. It's invoked every 15 minutes by a `pg_cron` job (`supabase/migrations/20260722201059_schedule_reminder_cron.sql`) calling `net.http_post` with that header; the secret itself is never committed — the migration reads it via Postgres `current_setting('app.reminder_cron_secret')`, which must be set once by hand (`ALTER DATABASE ... SET app.reminder_cron_secret = '...'`) in the Supabase SQL editor. **The migration ships with a `<PROD_APP_URL>` placeholder** for the `net.http_post` target — cron won't actually fire correctly until that's replaced with the real deployed app URL and the `cron.schedule` block is re-run.
 
 ### SSR error handling (Lovable-specific, non-obvious)
 Two layers guard against unhandled SSR crashes reaching users as a raw stack trace or blank page:
