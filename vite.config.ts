@@ -58,7 +58,7 @@ export default defineConfig(({ command, mode }) => {
         },
         server: { entry: "server" },
       }),
-      ...(command === "build" ? [nitro({ preset: "cloudflare-module" })] : []),
+      ...(command === "build" ? [nitro({ preset: "node-server" })] : []),
       viteReact(),
     ],
   };

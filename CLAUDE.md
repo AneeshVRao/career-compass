@@ -15,7 +15,8 @@ bun install
 bun run dev          # vite dev — starts the TanStack Start app
 bun run build        # vite build
 bun run build:dev    # vite build --mode development
-bun run preview
+bun run preview      # broken — see note below, use `bun run start` instead
+bun run start        # node .output/server/index.mjs — runs an actual production build
 bun run lint         # eslint .
 bun run format       # prettier --write .
 bun run test         # vitest run
@@ -26,7 +27,7 @@ bun run test:e2e     # playwright test (starts its own dev server on :8080)
 
 Run a single Vitest file/test: `bunx vitest run src/lib/domain.test.ts -t "returns the label"`. Run a single Playwright spec: `bunx playwright test e2e/board.spec.ts`.
 
-`bun run preview` (plain `vite preview` on a `nitro`/`cloudflare-module` build) 500s with `ERR_MODULE_NOT_FOUND` looking for `dist/server/server.js` — this is a known limitation of that preset combination (TanStack Start's generic preview plugin expects a Node-style output, not a Workers bundle under `.output/`), not a broken build. To actually verify a production build locally, run the built worker through `wrangler dev` (or just trust `bun run dev`/`bun run build` passing, which is what CI-equivalent verification in this repo relies on).
+`bun run preview` (plain `vite preview`) always 500s with `ERR_MODULE_NOT_FOUND` looking for `dist/server/server.js` — its preview plugin expects TanStack Start's own default (non-nitro) output layout, but this project always builds through `nitro/vite` (output goes to `.output/server/index.mjs` instead), regardless of preset. This isn't fixable by changing presets — it's a mismatch between "using nitro at all" and what `vite preview` expects. To actually run a production build locally, use `bun run start` instead (or just trust `bun run build` passing).
 
 ### Testing setup
 - `vitest.config.ts` is standalone (not merged into `vite.config.ts`). Coverage is scoped to `src/lib/domain.ts`, `src/lib/reminders.ts`, `src/lib/events-api.ts` with an 80% threshold on all four metrics — this is a deliberate narrow scope, not the whole `src/` tree; extend `coverage.include` deliberately if adding more testable pure logic to `src/lib`.
@@ -44,7 +45,7 @@ TanStack Start (file-based router + SSR) + React 19 + Tailwind v4 + shadcn/ui (R
 Regenerated automatically by the TanStack router plugin from `src/routes/**` whenever `vite dev`/`vite build` runs. Declaration order in this file can shuffle between regenerations — that's harmless.
 
 ### `vite.config.ts`
-A plain `defineConfig` composing `@tailwindcss/vite`, `vite-tsconfig-paths`, the TanStack Start plugin (`@tanstack/react-start/plugin/vite`, with `server: { entry: "server" }` redirecting the server entry to `src/server.ts`), `nitro/vite`'s `nitro()` plugin on build only (targeting the `cloudflare-module` preset), and `@vitejs/plugin-react`. Also sets up `resolve.dedupe`/`optimizeDeps` for React and TanStack Query, an explicit `VITE_`-prefixed env `define` pass (belt-and-suspenders alongside Vite's normal `import.meta.env` handling, useful under SSR/nitro bundling), and a dev-server watch debounce. No wrapper package — every plugin here is a direct dependency in `package.json`, so add/adjust plugins directly in this file rather than looking for hidden composed config elsewhere.
+A plain `defineConfig` composing `@tailwindcss/vite`, `vite-tsconfig-paths`, the TanStack Start plugin (`@tanstack/react-start/plugin/vite`, with `server: { entry: "server" }` redirecting the server entry to `src/server.ts`), `nitro/vite`'s `nitro()` plugin on build only (targeting the `node-server` preset — a plain long-running Node HTTP server, deployable to any VPS/PaaS; run it via `bun run start`), and `@vitejs/plugin-react`. Also sets up `resolve.dedupe`/`optimizeDeps` for React and TanStack Query, an explicit `VITE_`-prefixed env `define` pass (belt-and-suspenders alongside Vite's normal `import.meta.env` handling, useful under SSR/nitro bundling), and a dev-server watch debounce. No wrapper package — every plugin here is a direct dependency in `package.json`, so add/adjust plugins directly in this file rather than looking for hidden composed config elsewhere.
 
 ### Supabase client split (important — this is a common source of bugs)
 - `src/integrations/supabase/client.ts` — browser/SSR client, anon/publishable key, RLS-enforced. Default for all UI data access (`src/lib/events-api.ts`).
