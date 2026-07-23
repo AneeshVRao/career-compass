@@ -2,7 +2,7 @@
 
 ## Current status
 
-**Not deployed anywhere yet** — the plan is to finish local verification first, then deploy to Render (an account already exists). Local `.env` now has real values for every secret except the deployed app doesn't exist yet, so `<PROD_APP_URL>` in the cron migration is still a placeholder. The only thing verified so far is a local production build (`bun run build` → `bun run start`, serving on `http://localhost:3000`).
+**Deployed.** The app is live on Render at `https://career-compass-nowy.onrender.com` (Blueprint ID `exs-d9h1f1brjlhs73dcb7ag`), built via the `render.yaml` Blueprint. `/`, `/board`, and `/calendar` have been verified to return 200. The cron migration's `<PROD_APP_URL>` placeholder has been filled in with this URL, but the migration still needs to be (re-)run in the Supabase SQL editor to actually schedule the job — see the runbook below.
 
 The Supabase project also changed mid-project: the original project (`irzxntglqqwyrvmkxkpy`, provisioned through Lovable Cloud) was replaced with a fresh, self-created project (`iqqkvnjwrgyiigafxsqp`) with no Lovable history at all. The fresh project starts with **no schema** — both migrations in `supabase/migrations/` need to be applied to it before the app will work against it at all (see "Database setup" below). `docs/DATABASE.md` and `docs/DECISIONS.md`'s historical entries still reference the old project ID where they're describing something that happened on it; that's intentional, not a stale reference.
 
@@ -11,7 +11,7 @@ The Supabase project also changed mid-project: the original project (`irzxntglqq
 The current Supabase project (`iqqkvnjwrgyiigafxsqp`) is empty. Before anything else works, paste both migration files into its SQL editor, in order:
 
 1. `supabase/migrations/20260722131142_8274acba-a280-46aa-83b5-f2549fdcb9b8.sql` — creates the enums, `events`/`settings` tables, RLS policies, indexes, and enables `pg_cron`/`pg_net`.
-2. `supabase/migrations/20260722201059_schedule_reminder_cron.sql` — **not yet ready to run** — still has the `<PROD_APP_URL>` placeholder. It's safe (and useful) to run just the `CREATE SCHEMA private` / `CREATE TABLE private.app_secrets` portion early if you want the table to exist ahead of time, but the `cron.schedule(...)` call at the bottom needs the real URL filled in first. See the runbook below.
+2. `supabase/migrations/20260722201059_schedule_reminder_cron.sql` — the `<PROD_APP_URL>` placeholder is now filled in with the real Render URL. Still needs the `reminder_cron_secret` row inserted into `private.app_secrets` and the full migration run by hand in the SQL editor — see the runbook below.
 
 ## Deploy target
 
@@ -47,19 +47,16 @@ None of these exist anywhere except the local `.env` file right now. Whatever ho
 
 ## Reminder cron setup runbook
 
-The migration exists but has never been applied anywhere. Note: the secret is stored in a **private Postgres table**, not a custom GUC variable — Supabase's hosted Postgres rejects `ALTER DATABASE ... SET` for custom parameters with `permission denied to set parameter` even from the SQL editor (it requires true superuser, which the platform doesn't grant). See `docs/DECISIONS.md` for the full story. Steps, in order:
+The app is deployed and the migration's URL placeholder is filled in, but the migration still needs to be run by hand — there is no CLI/API path to Supabase in this environment (see below). Note: the secret is stored in a **private Postgres table**, not a custom GUC variable — Supabase's hosted Postgres rejects `ALTER DATABASE ... SET` for custom parameters with `permission denied to set parameter` even from the SQL editor (it requires true superuser, which the platform doesn't grant). See `docs/DECISIONS.md` for the full story. Steps, in order:
 
-1. Generate a secret: `openssl rand -hex 32`. (Already done for local dev — see `REMINDER_CRON_SECRET` in `.env`.)
-2. In the Supabase SQL editor for project `iqqkvnjwrgyiigafxsqp`, run **by hand** (never commit this exact statement with a real value in it):
+1. In the Supabase SQL editor for project `iqqkvnjwrgyiigafxsqp`, run **by hand** (never commit this exact statement with a real value in it) — use the same value already set as `REMINDER_CRON_SECRET` on Render so the two sides match:
    ```sql
-   INSERT INTO private.app_secrets (key, value) VALUES ('reminder_cron_secret', '<paste-the-generated-secret>')
+   INSERT INTO private.app_secrets (key, value) VALUES ('reminder_cron_secret', '<the-REMINDER_CRON_SECRET-value>')
      ON CONFLICT (key) DO UPDATE SET value = excluded.value;
    ```
    (The `private.app_secrets` table itself is created by `supabase/migrations/20260722201059_schedule_reminder_cron.sql` — run that migration's `CREATE SCHEMA`/`CREATE TABLE` portion first if the table doesn't exist yet.)
-3. Set the same secret value as `REMINDER_CRON_SECRET` in whatever hosts the deployed app (see the env var table above).
-4. Open `supabase/migrations/20260722201059_schedule_reminder_cron.sql` and replace the `<PROD_APP_URL>` placeholder with the actual deployed app URL.
-5. Paste the (now-completed) migration SQL into the Supabase SQL editor and run it. It's written to be safely re-runnable (`cron.unschedule(...) where exists (...)` before the `cron.schedule(...)` call, `CREATE SCHEMA/TABLE IF NOT EXISTS`), so re-running it after fixing the URL is fine.
-6. Verify: `curl -X POST https://<your-app>/api/public/run-reminders -H "x-reminder-cron-secret: <the-secret>"` should return `{"ok":true,...}` rather than a 401.
+2. Paste the full contents of `supabase/migrations/20260722201059_schedule_reminder_cron.sql` (URL placeholder already filled in) into the Supabase SQL editor and run it. It's written to be safely re-runnable (`cron.unschedule(...) where exists (...)` before the `cron.schedule(...)` call, `CREATE SCHEMA/TABLE IF NOT EXISTS`), so re-running it later is fine.
+3. Verify: `curl -X POST https://career-compass-nowy.onrender.com/api/public/run-reminders -H "x-reminder-cron-secret: <the-secret>"` should return `{"ok":true,...}` rather than a 401.
 
 There is currently no way to apply Supabase migrations from the CLI in this environment — `supabase login` was never run, so `supabase db push` fails with an auth error. The SQL-editor-paste workflow above is the only currently-working path; if CLI access gets set up later, `supabase link --project-ref iqqkvnjwrgyiigafxsqp && supabase db push` would be the alternative.
 
