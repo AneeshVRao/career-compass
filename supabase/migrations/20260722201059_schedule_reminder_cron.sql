@@ -29,7 +29,7 @@ select cron.schedule(
   '*/15 * * * *',
   $$
   select net.http_post(
-    url := '<PROD_APP_URL>/api/public/run-reminders', -- TODO: replace with your deployed app URL
+    url := 'https://career-compass-nowy.onrender.com/api/public/run-reminders',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'x-reminder-cron-secret', (select value from private.app_secrets where key = 'reminder_cron_secret')
