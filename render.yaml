@@ -1,0 +1,23 @@
+services:
+  - name: career-compass
+    type: web
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: bun install && bun run build
+    startCommand: bun run start
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: REMINDER_CRON_SECRET
+        sync: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        sync: false

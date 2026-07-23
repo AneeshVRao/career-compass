@@ -15,9 +15,19 @@ The current Supabase project (`iqqkvnjwrgyiigafxsqp`) is empty. Before anything 
 
 ## Deploy target
 
-`vite.config.ts` targets nitro's `node-server` preset — a plain, long-running Node HTTP server, produced at `.output/server/index.mjs`. Run it with `bun run start` (which is just `node .output/server/index.mjs`).
+`vite.config.ts` targets nitro's `node-server` preset — a plain, long-running Node HTTP server, produced at `.output/server/index.mjs`. Run it with `bun run start` (which is just `node .output/server/index.mjs`). It honors nitro's default `PORT` env var binding out of the box (verified locally: `PORT=3000 bun run start` serves correctly) — no code changes needed for Render's dynamic port assignment.
 
-This replaced an earlier `cloudflare-module` preset choice. The switch happened because there's no Cloudflare account to deploy to — `node-server` was chosen specifically because it's deployable to *any* host that can run a long-lived Node process: Railway, Render, Fly.io, a plain VPS, a Docker container, etc. No specific host has been picked yet (see `docs/STATUS.md`).
+This replaced an earlier `cloudflare-module` preset choice. The switch happened because there's no Cloudflare account to deploy to — `node-server` was chosen specifically because it's deployable to *any* host that can run a long-lived Node process: Railway, Render, Fly.io, a plain VPS, a Docker container, etc. **Render was picked** (account already exists).
+
+## Render setup
+
+`render.yaml` at the repo root is a Blueprint that defines the web service (`runtime: node`, `buildCommand: bun install && bun run build`, `startCommand: bun run start` — Render's `node` runtime bundles Bun natively). The 7 required secrets are listed with `sync: false`, meaning Render will prompt for each value at Blueprint creation rather than trying to pull them from anywhere — **the blueprint file itself never contains secret values**.
+
+To actually stand up the service (this part requires the Render dashboard — no CLI/API key exists in this environment to do it headlessly):
+
+1. Log into the Render dashboard → **New** → **Blueprint** → point it at this GitHub repo (`AneeshVRao/career-compass`) on the `main` branch. Render will detect `render.yaml` automatically.
+2. When prompted, paste in the 7 env var values from local `.env` (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `REMINDER_CRON_SECRET`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`).
+3. Deploy. Render assigns a `*.onrender.com` URL — that URL is `<PROD_APP_URL>` for the cron migration step below.
 
 Do not use `bun run preview` (plain `vite preview`) to sanity-check a production build — it's fundamentally incompatible with this setup and always 500s with `ERR_MODULE_NOT_FOUND` looking for `dist/server/server.js`. That path is TanStack Start's own default (non-nitro) output location; this project always builds through `nitro/vite` instead, which outputs to `.output/` regardless of which preset is selected. Changing the preset doesn't fix this — it's a mismatch between "using nitro at all" and what `vite preview`'s bundled preview plugin expects. Use `bun run start` instead.
 
