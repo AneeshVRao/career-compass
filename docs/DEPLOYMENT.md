@@ -2,7 +2,9 @@
 
 ## Current status
 
-**Deployed, but the data layer is broken.** The app is live on Render at `https://career-compass-nowy.onrender.com` (Blueprint ID `exs-d9h1f1brjlhs73dcb7ag`), built via the `render.yaml` Blueprint. All five routes return 200 and the HTML renders — but as of **2026-07-26** the `anon` role has no table privileges on the live Supabase project, so every client-side read and write fails with `42501 permission denied for table events`. The pages serve; they just can't load or save data.
+**Deployed and the reminder cron is live — but the data layer is broken.** The app is on Render at `https://career-compass-nowy.onrender.com` (Blueprint ID `exs-d9h1f1brjlhs73dcb7ag`), built via the `render.yaml` Blueprint. All five routes return 200, and the reminder cron is scheduled and verified end-to-end (see the runbook below).
+
+What is _not_ working: as of **2026-07-26** the `anon` role has no table privileges on the live Supabase project, so every client-side read and write fails with `42501 permission denied for table events`. The pages serve; they just can't load or save data. Note the reminder job is unaffected — it runs with the service-role key, which still has full access, so a healthy cron says nothing about whether the app itself can reach the database.
 
 Note what that means for smoke-testing a deploy: **a 200 from a route proves nothing about the database.** These pages SSR fine with a dead data layer. Check an actual REST call instead:
 
@@ -14,8 +16,6 @@ curl -s -o /dev/null -w '%{http_code}\n' \
 ```
 
 `200` is healthy. `401` with `42501` is this bug. Full diagnosis and the resolution decision live in `docs/STATUS.md`.
-
-The cron migration's `<PROD_APP_URL>` placeholder has been filled in with this URL, but the migration still needs to be (re-)run in the Supabase SQL editor to actually schedule the job — see the runbook below.
 
 The Supabase project also changed mid-project: the original project (`irzxntglqqwyrvmkxkpy`, provisioned through Lovable Cloud) was replaced with a fresh, self-created project (`iqqkvnjwrgyiigafxsqp`) with no Lovable history at all. The fresh project starts with **no schema** — both migrations in `supabase/migrations/` need to be applied to it before the app will work against it at all (see "Database setup" below). `docs/DATABASE.md` and `docs/DECISIONS.md`'s historical entries still reference the old project ID where they're describing something that happened on it; that's intentional, not a stale reference.
 
@@ -60,18 +60,22 @@ None of these exist anywhere except the local `.env` file right now. Whatever ho
 
 ## Reminder cron setup runbook
 
-The app is deployed and the migration's URL placeholder is filled in, but the migration still needs to be run by hand — there is no CLI/API path to Supabase in this environment (see below). Note: the secret is stored in a **private Postgres table**, not a custom GUC variable — Supabase's hosted Postgres rejects `ALTER DATABASE ... SET` for custom parameters with `permission denied to set parameter` even from the SQL editor (it requires true superuser, which the platform doesn't grant). See `docs/DECISIONS.md` for the full story. Steps, in order:
+**Done.** `private.app_secrets` is created and seeded, and `placement-tracker-reminders` is scheduled (job id 1, every 15 min) against the live Render URL. Verified with `curl -X POST https://career-compass-nowy.onrender.com/api/public/run-reminders -H "x-reminder-cron-secret: <the-secret>"` → `{"ok":true,"checked":0,"results":[]}`. Steps taken, for reference / re-running after a secret rotation:
 
-1. In the Supabase SQL editor for project `iqqkvnjwrgyiigafxsqp`, run **by hand** (never commit this exact statement with a real value in it) — use the same value already set as `REMINDER_CRON_SECRET` on Render so the two sides match:
+1. In the Supabase SQL editor for project `iqqkvnjwrgyiigafxsqp`, run **by hand** (never commit this exact statement with a real value in it) — use the same value set as `REMINDER_CRON_SECRET` on Render so the two sides match:
    ```sql
    INSERT INTO private.app_secrets (key, value) VALUES ('reminder_cron_secret', '<the-REMINDER_CRON_SECRET-value>')
      ON CONFLICT (key) DO UPDATE SET value = excluded.value;
    ```
    (The `private.app_secrets` table itself is created by `supabase/migrations/20260722201059_schedule_reminder_cron.sql` — run that migration's `CREATE SCHEMA`/`CREATE TABLE` portion first if the table doesn't exist yet.)
 2. Paste the full contents of `supabase/migrations/20260722201059_schedule_reminder_cron.sql` (URL placeholder already filled in) into the Supabase SQL editor and run it. It's written to be safely re-runnable (`cron.unschedule(...) where exists (...)` before the `cron.schedule(...)` call, `CREATE SCHEMA/TABLE IF NOT EXISTS`), so re-running it later is fine.
-3. Verify: `curl -X POST https://career-compass-nowy.onrender.com/api/public/run-reminders -H "x-reminder-cron-secret: <the-secret>"` should return `{"ok":true,...}` rather than a 401.
+3. Verify: the curl above should return `{"ok":true,...}` rather than a 401 or 500.
 
 There is currently no way to apply Supabase migrations from the CLI in this environment — `supabase login` was never run, so `supabase db push` fails with an auth error. The SQL-editor-paste workflow above is the only currently-working path; if CLI access gets set up later, `supabase link --project-ref iqqkvnjwrgyiigafxsqp && supabase db push` would be the alternative.
+
+### Gotcha: Render's env var field can silently corrupt long values
+
+Pasting the `SUPABASE_SERVICE_ROLE_KEY` JWT into Render's dashboard once produced a value with a stray space injected mid-string (visible only by re-reading the value back), which broke Supabase auth for every request `supabaseAdmin` made. It didn't surface as an auth error, though — `run-reminders.ts`'s settings query doesn't check the Supabase client's `error` field, only whether `data` came back, so a corrupted key manifested as a misleading `"No settings row"` 500 instead of a 401. If any Supabase-auth-dependent route starts failing after an env var edit on Render, re-paste the value as one continuous string (select-all-delete the field first, don't edit in place) before assuming the underlying data is missing.
 
 ## Supabase project ownership
 
