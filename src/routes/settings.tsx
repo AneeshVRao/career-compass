@@ -68,13 +68,18 @@ function SettingsView() {
           </div>
 
           <div className="grid gap-2">
-            <Label>Recipient email</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Label htmlFor="reminder-email">Recipient email</Label>
+            <Input
+              id="reminder-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
 
           <div className="grid gap-2">
-            <Label>From address</Label>
-            <Input value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Label htmlFor="from-email">From address</Label>
+            <Input id="from-email" value={from} onChange={(e) => setFrom(e.target.value)} />
             <p className="text-xs text-muted-foreground">
               Use <code>onboarding@resend.dev</code> until you verify a domain in Resend. Verified
               domain? Use e.g. <code>Reminders &lt;alerts@yourdomain.com&gt;</code>.

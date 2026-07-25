@@ -1,52 +1,7 @@
-import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
+import { TEST_TAG, createConfirmedUser, deleteTestUser, signIn, uniqueTestEmail } from "./helpers";
 
-// Same spirit as board.spec.ts's __e2e_test__ tag: anything this spec creates is
-// identifiable and deleted afterwards, because there is no separate test project.
-const TEST_TAG = "__e2e_test__";
 const PROTECTED_PATHS = ["/", "/board", "/calendar", "/list", "/settings"];
-
-// Playwright does not go through Vite, so .env is not loaded for the test process.
-// Read it directly rather than adding a dotenv dependency for one helper.
-function env(name: string): string | undefined {
-  if (process.env[name]) return process.env[name];
-  try {
-    const line = readFileSync(new URL("../.env", import.meta.url), "utf8")
-      .split(/\r?\n/)
-      .find((l) => l.startsWith(`${name}=`));
-    return line?.slice(name.length + 1).replace(/^"|"$/g, "");
-  } catch {
-    return undefined;
-  }
-}
-
-// Deletes the disposable auth user (settings/events rows cascade from
-// auth.users). Best-effort: a cleanup failure must not mask a test result, but it
-// is reported so silent leaks don't accumulate unnoticed.
-async function deleteTestUser(email: string): Promise<void> {
-  const url = env("SUPABASE_URL");
-  const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !serviceKey) {
-    console.warn(`[e2e cleanup] missing Supabase admin credentials; leftover user: ${email}`);
-    return;
-  }
-  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
-  const listRes = await fetch(`${url}/auth/v1/admin/users?per_page=200`, { headers });
-  if (!listRes.ok) {
-    console.warn(`[e2e cleanup] could not list users (${listRes.status}); leftover: ${email}`);
-    return;
-  }
-  const body = (await listRes.json()) as { users?: { id: string; email?: string }[] };
-  const match = body.users?.find((u) => u.email === email);
-  if (!match) return;
-  const delRes = await fetch(`${url}/auth/v1/admin/users/${match.id}`, {
-    method: "DELETE",
-    headers,
-  });
-  if (!delRes.ok) {
-    console.warn(`[e2e cleanup] could not delete ${email} (${delRes.status})`);
-  }
-}
 
 test.describe("auth: route protection", () => {
   for (const path of PROTECTED_PATHS) {
@@ -103,11 +58,45 @@ test.describe("auth: signup and sign-out", () => {
     // Confirmation is off, so we have a real session: the shell shows the signed-in
     // address, and signing out must bounce back to /login.
     await expect(page.getByText(email, { exact: true }).first()).toBeVisible();
+
+    // The handle_new_user() trigger should have provisioned a settings row seeded
+    // with the signup address, so /settings renders it pre-populated rather than
+    // blank. See the deterministic version of this below, which does not depend on
+    // the project's "Confirm email" setting.
+    await expect(page.getByLabel("Recipient email")).toHaveValue(email, { timeout: 15000 });
+
     await page.getByRole("button", { name: "Sign out" }).first().click();
     await expect(page).toHaveURL(/\/login$/);
 
     // A signed-out session must not be able to walk back into a protected page.
     await page.goto("/board");
     await expect(page).toHaveURL(/\/login$/);
+  });
+});
+
+test.describe("auth: new-user provisioning", () => {
+  let email = "";
+
+  test.afterEach(async () => {
+    if (email) await deleteTestUser(email);
+  });
+
+  // Proves the handle_new_user() database trigger fired: nothing in the app code
+  // creates a settings row, so a pre-populated reminder_email on a brand-new
+  // account can only have come from the trigger. Uses an admin-created confirmed
+  // account so the assertion runs regardless of the "Confirm email" setting.
+  test("a brand-new account gets a settings row seeded with its own email", async ({ page }) => {
+    email = uniqueTestEmail("provision-");
+    const password = `Pw-${Date.now()}-aA1!`;
+    await createConfirmedUser(email, password);
+
+    await signIn(page, email, password);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    await expect(page.getByLabel("Recipient email")).toHaveValue(email, { timeout: 15000 });
+    // The trigger seeds a default sender too; an empty value would mean no row.
+    await expect(page.getByLabel("From address")).not.toHaveValue("");
   });
 });
