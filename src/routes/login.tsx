@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Stamp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -30,6 +30,17 @@ function LoginView() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // This page is SSR'd, so the form is on screen and interactive-looking before
+  // React hydrates — but nothing done in that window survives:
+  //   - typing goes only into the DOM; hydration resets these controlled inputs
+  //     to their (empty) `value` prop, silently discarding it;
+  //   - clicking submit runs no `onSubmit` handler, so the browser performs a
+  //     *native* form submit and reloads `/login?` (empty query — no input
+  //     carries a `name`, which is also why nothing leaks into the URL).
+  // Gating the form on mount closes that window. A disabled default button also
+  // suppresses implicit Enter-key submission, so every entry path is covered.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -114,36 +125,41 @@ function LoginView() {
             </h1>
           </header>
 
-          <form onSubmit={onSubmit} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-            </div>
+          <form onSubmit={onSubmit}>
+            {/* One native attribute gates every control inside, so the whole
+                form is inert until hydration rather than each field
+                remembering to opt in. */}
+            <fieldset disabled={!hydrated} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            {notice && <p className="text-sm text-ledger-bright">{notice}</p>}
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              {notice && <p className="text-sm text-ledger-bright">{notice}</p>}
 
-            <Button type="submit" disabled={pending}>
-              {pending ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
-            </Button>
+              <Button type="submit" disabled={pending}>
+                {pending ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
+              </Button>
+            </fieldset>
           </form>
 
           <div className="my-4 flex items-center gap-3">
@@ -154,7 +170,14 @@ function LoginView() {
             <span className="h-px flex-1 bg-border" />
           </div>
 
-          <Button variant="outline" className="w-full" onClick={onGoogle} disabled={pending}>
+          {/* Same pre-hydration window: this button's only behaviour is its
+              onClick, so a click before mount would do nothing at all. */}
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={onGoogle}
+            disabled={pending || !hydrated}
+          >
             Sign in with Google
           </Button>
 
@@ -162,6 +185,7 @@ function LoginView() {
             {mode === "signin" ? "No account yet?" : "Already have an account?"}{" "}
             <button
               type="button"
+              disabled={!hydrated}
               className="text-brass hover:underline cursor-pointer"
               onClick={() => {
                 setMode(mode === "signin" ? "signup" : "signin");
