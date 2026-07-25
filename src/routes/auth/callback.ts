@@ -13,10 +13,23 @@ export const Route = createFileRoute("/auth/callback")({
   },
 });
 
+// `next` arrives as a query param, so it is fully attacker-controlled: without
+// this check `/auth/callback?code=VALID&next=https://evil.com` would hand a
+// freshly-authenticated user straight to an attacker's site. Only a same-origin
+// relative path is accepted; anything else falls back to the app root.
+export function safeNext(raw: string | null): string {
+  if (!raw) return "/";
+  // Browsers normalise "\" to "/" while parsing URLs, so "/\evil.com" is
+  // protocol-relative in effect. Normalise first so both separators are checked.
+  const path = raw.replace(/\\/g, "/");
+  if (!path.startsWith("/") || path.startsWith("//") || path.includes("://")) return "/";
+  return path;
+}
+
 async function handleCallback(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/";
+  const next = safeNext(url.searchParams.get("next"));
 
   if (code) {
     const { getSupabaseServerClient } =
