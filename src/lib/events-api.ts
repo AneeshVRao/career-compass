@@ -10,12 +10,6 @@ export async function listEvents(): Promise<EventRow[]> {
   return data ?? [];
 }
 
-export async function getEvent(id: string): Promise<EventRow | null> {
-  const { data, error } = await supabase.from("events").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
 export async function createEvent(input: EventInsert): Promise<EventRow> {
   const { data, error } = await supabase.from("events").insert(input).select("*").single();
   if (error) throw error;

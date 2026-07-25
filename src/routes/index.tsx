@@ -207,7 +207,9 @@ function Dashboard() {
                       fontSize: 12,
                     }}
                   />
-                  <Bar dataKey="value" radius={[2, 2, 0, 0]}>
+                  {/* Without a `name`, Recharts labels the tooltip with the raw
+                      dataKey — it read "value : 1". */}
+                  <Bar dataKey="value" name="Entries" radius={[2, 2, 0, 0]}>
                     {EVENT_STATUSES.map((_, i) => (
                       <Cell key={i} fill="var(--brass)" />
                     ))}

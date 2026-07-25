@@ -6,7 +6,7 @@
 // is just the raw key and rely on the `apikey` header instead. A real user
 // session sends `Bearer <jwt>` (not the key), which passes through untouched so
 // RLS sees the authenticated user.
-export function isNewSupabaseApiKey(value: string): boolean {
+function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
 }
 

@@ -97,13 +97,9 @@ Grants now: **`anon` has none** — its `SELECT, INSERT, UPDATE, DELETE` on both
 
 The consequence worth internalising: the anon key still ships in the client bundle by design, but it now grants **nothing** on its own — a session cookie carrying a real user JWT is what unlocks data, and only that user's own rows.
 
-**The `anon` revocation is not in any migration.** It was applied by hand in the SQL editor, so `supabase/migrations/` still reads `GRANT ... TO anon, authenticated` from the first migration and the live database disagrees with it. Anyone replaying the migrations into a fresh project gets a database that does _not_ match production. If you rebuild the schema anywhere, re-apply the revoke by hand:
+The revoke lives in `20260725120000_multi_user_auth.sql` (lines 74–75), so it replays correctly into a fresh project — the first migration's `GRANT ... TO anon` is deliberately undone by the third rather than edited in place, which keeps the migration history append-only.
 
-```sql
-revoke all on public.events, public.settings from anon;
-```
-
-This also means pre-auth code cannot work against the live project at all — see `docs/STATUS.md`.
+**Consequence for pre-auth code**: anything that reads as `anon` now gets `42501 permission denied for table events` against the live project. Confirmed empirically on 2026-07-26. This is correct behaviour, not a fault — but it does mean a build from before the auth work cannot talk to this database at all.
 
 ### Telling a GRANT failure apart from an RLS failure
 

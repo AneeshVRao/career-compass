@@ -2,6 +2,8 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Stamp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { EventCard } from "@/components/EventCard";
+import type { EventRow } from "@/lib/domain";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +23,34 @@ export const Route = createFileRoute("/login")({
 });
 
 type Mode = "signin" | "signup";
+
+// A sample entry for the specimen card on the sign-in page. Dates are fixed
+// literals rather than computed from `new Date()` so the server and client render
+// identical text — a relative date here would hydrate as a mismatch.
+const SPECIMEN_EVENT: EventRow = {
+  id: "specimen",
+  company: "Rubicon Analytics",
+  role: "Quant Developer",
+  round: "R2 — Technical",
+  type: "INTERVIEW",
+  mode: "OFFLINE",
+  status: "INTERVIEW_R2",
+  priority: "HIGH",
+  start_at: "2026-07-26T09:00:00.000Z",
+  end_at: null,
+  location: "Placement Cell, Block C",
+  link: null,
+  ctc: "32 LPA",
+  contacts: [],
+  prep_notes: null,
+  outcome_notes: null,
+  resume_version: null,
+  reminder_sent: false,
+  reminder_sent_at: null,
+  created_at: "2026-07-01T00:00:00.000Z",
+  updated_at: "2026-07-01T00:00:00.000Z",
+  user_id: null,
+};
 
 function LoginView() {
   const navigate = useNavigate();
@@ -101,28 +131,58 @@ function LoginView() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="h-11 w-11 rounded-sm border border-brass/50 text-brass grid place-items-center">
-            <Stamp className="h-5 w-5" strokeWidth={1.5} />
-          </div>
-          <div>
-            <div className="font-serif text-xl leading-tight">Placement</div>
-            <div className="text-[10px] font-mono tracking-[0.25em] text-brass/80 leading-tight">
-              DOSSIER
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
+      <div className="grid w-full max-w-4xl items-start gap-10 md:grid-cols-[1fr_22rem] md:gap-14">
+        {/* Left: what you are signing into. A returning user reads none of this,
+            but a first-time visitor previously got a bare form that never said
+            what the product does. */}
+        <div>
+          <div className="mb-7 flex items-center gap-3">
+            <div className="h-11 w-11 rounded-sm border border-brass/50 text-brass grid place-items-center">
+              <Stamp className="h-5 w-5" strokeWidth={1.5} />
             </div>
+            <div>
+              <div className="font-serif text-xl leading-tight">Placement</div>
+              <div className="text-[10px] font-mono tracking-[0.25em] text-brass/80 leading-tight">
+                DOSSIER
+              </div>
+            </div>
+          </div>
+
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.25em] text-brass">
+            Confidential · Personnel file
+          </p>
+          <h1 className="font-serif text-3xl font-semibold leading-[1.15] md:text-4xl">
+            Your placement season, kept on file.
+          </h1>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+            Log every pre-placement talk, online test and interview round in one place. Each entry
+            gets an email reminder 24 hours before it starts, so nothing on your calendar arrives
+            unannounced.
+          </p>
+
+          {/* The signature element previewing itself: the real EventCard, fed a
+              specimen row, so this can never drift from the actual component.
+              Inert — it is a sample document, not a control. */}
+          <div className="pointer-events-none mt-9 hidden max-w-sm select-none md:block">
+            <EventCard event={SPECIMEN_EVENT} />
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              Specimen entry
+            </p>
           </div>
         </div>
 
+        {/* Right: the credential counter. */}
         <Card className="p-6 bg-card border-border">
           <header className="mb-5">
             <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-brass mb-1">
               {mode === "signin" ? "Access" : "Enrol"}
             </p>
-            <h1 className="font-serif text-2xl font-semibold">
+            {/* h2, not h1: the page's h1 is the headline in the left panel. Still
+                a heading, so it stays reachable by role. */}
+            <h2 className="font-serif text-2xl font-semibold">
               {mode === "signin" ? "Sign in" : "Create account"}
-            </h1>
+            </h2>
           </header>
 
           <form onSubmit={onSubmit}>
