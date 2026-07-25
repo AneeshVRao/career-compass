@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "@tanstack/react-router";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import type { AuthUser } from "@/lib/auth-types";
+import type { AuthUser } from "@/lib/auth-server";
 
 type AuthContextValue = {
   user: User | null;

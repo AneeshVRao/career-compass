@@ -7,9 +7,11 @@
 // `@tanstack/react-start/server` out of the client bundle — the build's
 // importProtection plugin fails loudly if that discipline slips.
 import { createServerFn } from "@tanstack/react-start";
-import type { AuthUser } from "./auth-types";
 
-export type { AuthUser } from "./auth-types";
+// `import type` is erased at build time, so importing this from client-reachable
+// modules (e.g. auth.tsx) is safe even though it's declared in the same file as
+// a server function — no separate types-only module needed for one alias.
+export type AuthUser = { id: string; email: string | null };
 
 // Returns null when there is no valid session. Used by the root route's
 // beforeLoad to seed router context / guard protected pages, and by /login to
