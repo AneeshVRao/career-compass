@@ -1,12 +1,23 @@
 import { test, expect } from "@playwright/test";
+import { createConfirmedUser, deleteTestUser, signIn, uniqueTestEmail } from "./helpers";
 
 const TEST_COMPANY = "__e2e_test__";
+const TEST_PASSWORD = "e2e-test-password-1!";
 
 test.describe("board: create and delete an event", () => {
+  let testEmail: string;
+
+  // The board is now behind the auth guard, so each test needs its own
+  // disposable signed-in user rather than an anonymous visit.
+  test.beforeEach(async ({ page }) => {
+    testEmail = uniqueTestEmail("board");
+    await createConfirmedUser(testEmail, TEST_PASSWORD);
+    await signIn(page, testEmail, TEST_PASSWORD);
+  });
+
   test.afterEach(async ({ page }) => {
     // Best-effort cleanup: if the test event still exists (e.g. the test failed
-    // partway through), find and delete it so no leftover row lingers in the
-    // real single-user database.
+    // partway through), find and delete it so no leftover row lingers behind.
     await page.goto("/board");
     await page.waitForLoadState("networkidle");
     const card = page.getByText(TEST_COMPANY, { exact: true }).first();
@@ -21,6 +32,7 @@ test.describe("board: create and delete an event", () => {
         timeout: 15000,
       });
     }
+    await deleteTestUser(testEmail);
   });
 
   test("creating an event shows it on the board, deleting removes it", async ({ page }) => {
