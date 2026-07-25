@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BoardRouteImport } from './routes/board'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as ListRouteImport } from './routes/list'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as ApiPublicRunRemindersRouteImport } from './routes/api/public/run-reminders'
 
 const IndexRoute = IndexRouteImport.update({
@@ -36,9 +38,19 @@ const ListRoute = ListRouteImport.update({
   path: '/list',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicRunRemindersRoute = ApiPublicRunRemindersRouteImport.update({
@@ -52,7 +64,9 @@ export interface FileRoutesByFullPath {
   '/board': typeof BoardRoute
   '/calendar': typeof CalendarRoute
   '/list': typeof ListRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/api/public/run-reminders': typeof ApiPublicRunRemindersRoute
 }
 export interface FileRoutesByTo {
@@ -60,7 +74,9 @@ export interface FileRoutesByTo {
   '/board': typeof BoardRoute
   '/calendar': typeof CalendarRoute
   '/list': typeof ListRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/api/public/run-reminders': typeof ApiPublicRunRemindersRoute
 }
 export interface FileRoutesById {
@@ -69,7 +85,9 @@ export interface FileRoutesById {
   '/board': typeof BoardRoute
   '/calendar': typeof CalendarRoute
   '/list': typeof ListRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/api/public/run-reminders': typeof ApiPublicRunRemindersRoute
 }
 export interface FileRouteTypes {
@@ -79,7 +97,9 @@ export interface FileRouteTypes {
     | '/board'
     | '/calendar'
     | '/list'
+    | '/login'
     | '/settings'
+    | '/auth/callback'
     | '/api/public/run-reminders'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -87,7 +107,9 @@ export interface FileRouteTypes {
     | '/board'
     | '/calendar'
     | '/list'
+    | '/login'
     | '/settings'
+    | '/auth/callback'
     | '/api/public/run-reminders'
   id:
     | '__root__'
@@ -95,7 +117,9 @@ export interface FileRouteTypes {
     | '/board'
     | '/calendar'
     | '/list'
+    | '/login'
     | '/settings'
+    | '/auth/callback'
     | '/api/public/run-reminders'
   fileRoutesById: FileRoutesById
 }
@@ -104,7 +128,9 @@ export interface RootRouteChildren {
   BoardRoute: typeof BoardRoute
   CalendarRoute: typeof CalendarRoute
   ListRoute: typeof ListRoute
+  LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   ApiPublicRunRemindersRoute: typeof ApiPublicRunRemindersRoute
 }
 
@@ -138,11 +164,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ListRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/run-reminders': {
@@ -160,7 +200,9 @@ const rootRouteChildren: RootRouteChildren = {
   BoardRoute: BoardRoute,
   CalendarRoute: CalendarRoute,
   ListRoute: ListRoute,
+  LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   ApiPublicRunRemindersRoute: ApiPublicRunRemindersRoute,
 }
 export const routeTree = rootRouteImport

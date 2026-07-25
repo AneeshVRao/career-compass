@@ -1,6 +1,12 @@
 import { timingSafeEqual } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
-import { labelType, reminderWindow, renderReminderEmail } from "@/lib/reminders";
+import {
+  DEFAULT_FROM_EMAIL,
+  labelType,
+  planReminderSends,
+  reminderWindow,
+  renderReminderEmail,
+} from "@/lib/reminders";
 
 export const Route = createFileRoute("/api/public/run-reminders")({
   server: {
@@ -44,15 +50,14 @@ async function runReminders() {
     return json({ ok: false, error: "Missing RESEND_API_KEY" }, 500);
   }
 
+  // Runs with the service-role client so the user-scoped RLS policies don't hide
+  // other users' rows from the cron job — it legitimately needs to see everyone's.
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  const { data: settings } = await supabaseAdmin
+  const { data: settingsRows, error: settingsError } = await supabaseAdmin
     .from("settings")
-    .select("*")
-    .limit(1)
-    .maybeSingle();
-  if (!settings) return json({ ok: false, error: "No settings row" }, 500);
-  if (!settings.reminders_enabled) return json({ ok: true, skipped: "disabled" });
+    .select("*");
+  if (settingsError) return json({ ok: false, error: settingsError.message }, 500);
 
   const { start: windowStart, end: windowEnd } = reminderWindow();
 
@@ -65,9 +70,17 @@ async function runReminders() {
 
   if (error) return json({ ok: false, error: error.message }, 500);
 
-  const results: { id: string; company: string; sent: boolean; error?: string }[] = [];
+  const sends = planReminderSends(settingsRows ?? [], events ?? []);
 
-  for (const ev of events ?? []) {
+  const results: {
+    id: string;
+    company: string;
+    user_id: string | null;
+    sent: boolean;
+    error?: string;
+  }[] = [];
+
+  for (const { recipient, event: ev } of sends) {
     try {
       const start = new Date(ev.start_at);
       const html = renderReminderEmail(ev, start);
@@ -80,8 +93,8 @@ async function runReminders() {
           Authorization: `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: settings.from_email || "Placement Tracker <onboarding@resend.dev>",
-          to: [settings.reminder_email],
+          from: recipient.from_email || DEFAULT_FROM_EMAIL,
+          to: [recipient.reminder_email],
           subject,
           html,
         }),
@@ -92,6 +105,7 @@ async function runReminders() {
         results.push({
           id: ev.id,
           company: ev.company,
+          user_id: ev.user_id,
           sent: false,
           error: `Resend ${res.status}: ${body}`,
         });
@@ -113,19 +127,32 @@ async function runReminders() {
         results.push({
           id: ev.id,
           company: ev.company,
+          user_id: ev.user_id,
           sent: true,
           error: `Sent but not marked, will re-send: ${markError.message}`,
         });
         continue;
       }
 
-      results.push({ id: ev.id, company: ev.company, sent: true });
+      results.push({ id: ev.id, company: ev.company, user_id: ev.user_id, sent: true });
     } catch (e) {
-      results.push({ id: ev.id, company: ev.company, sent: false, error: (e as Error).message });
+      results.push({
+        id: ev.id,
+        company: ev.company,
+        user_id: ev.user_id,
+        sent: false,
+        error: (e as Error).message,
+      });
     }
   }
 
-  return json({ ok: true, checked: events?.length ?? 0, results });
+  return json({
+    ok: true,
+    recipients: settingsRows?.length ?? 0,
+    dueEvents: events?.length ?? 0,
+    checked: sends.length,
+    results,
+  });
 }
 
 function json(body: unknown, status = 200) {
