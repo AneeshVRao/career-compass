@@ -2,6 +2,24 @@
 
 A short log of non-obvious calls made and why, so a future session doesn't have to re-litigate them from scratch. Newest first. Dates are when the decision was made, not necessarily when it shipped.
 
+## 2026-07-25 — Multi-user auth: cookie-based SSR sessions, open signup, backfill over wipe
+
+**Decision**: the app becomes multi-user. Sessions move from localStorage to a **cookie** via `@supabase/ssr`; signup is **open** (email/password + Google OAuth, no invite gating); existing single-user data is **backfilled** to the real user's account rather than wiped.
+
+**Why cookie-based SSR rather than keeping localStorage:** the requirement was "no auth flicker on first paint," and that requirement alone decides the architecture. A localStorage session is unreadable by the server, so the earliest an auth check can happen is after hydration — meaning a protected page necessarily renders an unauthenticated frame and then snaps to a redirect. Moving the session into a cookie lets the check run server-side in the root route's `beforeLoad`, before any HTML is produced. Everything else here (the third Supabase client, deleting the bearer-token middleware) follows from that one choice rather than being independently motivated.
+
+**Consequence — a third Supabase client, and a real trust-boundary trap.** There are now three: the browser client (`createBrowserClient`, cookie session), a per-request cookie-aware server client (`client.request.server.ts`, RLS-enforced, runs as the logged-in user), and the untouched service-role `supabaseAdmin`. The trap, hit for real during implementation: the request client statically imports `@tanstack/react-start/server`, and `vite.config.ts`'s `importProtection` fails the build if any client-reachable module imports a `**/server/**` path. The first cut co-located `getSupabaseServerClient` with the `fetchAuthUser` serverFn, `__root.tsx` imported it, and the build broke. Fixed by splitting into three modules (`auth-types.ts` for the plain type, `auth-server.ts` client-reachable with a dynamic import inside the handler, `client.request.server.ts` for the actual server imports). Treating that build failure as a real bug rather than routing around it is the point — it was correctly reporting a leak.
+
+**Deleted the bearer-token scaffolding** (`auth-middleware.ts` / `auth-attacher.ts`) rather than adapting it. It was written for exactly this moment, but cookie SSR makes it redundant: the server reads the session directly, so nothing needs to attach `Authorization: Bearer` per serverFn call. Keeping both would have meant two competing auth mechanisms, each half-wired.
+
+**One route guard, not five.** Protection lives in `__root.tsx`'s `beforeLoad` with a `PUBLIC_PATHS` allowlist (`/login`, `/auth/callback`), rather than a `beforeLoad` on each of the five pages. Smaller diff, and it fails safe — a newly added page is protected by default, whereas the per-page variant fails open the moment someone forgets one.
+
+**Why open signup**: asked for directly. Worth being explicit that this makes the deployment a small public service rather than a personal tool, which is why leaving Supabase's "Confirm email" setting **on** is the recommended posture — without it, anyone can enrol using an address they don't control. RLS makes other users' data unreachable regardless, so the blast radius of an unwanted signup is an empty account.
+
+**Why backfill rather than wipe**: also asked for directly, and cheap to honour. The subtlety worth recording is that `user_id`'s `auth.uid()` default does *nothing* for pre-existing rows — a default only applies to new inserts. So the column ships nullable, pre-existing rows sit with `user_id IS NULL` and are invisible to everyone (RLS matches `auth.uid() = user_id`, and NULL matches nobody), and a separate lockdown migration flips it to `NOT NULL` only after the manual backfill. Splitting the migration in two is what makes the ordering enforceable instead of merely documented: run the lockdown early and it fails loudly on the NOT NULL violation. The one genuinely fiddly bit is `settings`, where the signup trigger creates a second row for the same person — the runbook copies the legacy row's preferences onto the trigger-created row and deletes the orphan, because `settings.user_id` is `UNIQUE` and claiming the old row directly would violate it.
+
+**Alternative considered**: a `_authed.tsx` layout route wrapping the five pages, the more idiomatic TanStack shape. Rejected as a bigger diff for this repo — it means renaming/moving all five route files and reshaping the generated route tree, to gain nothing over the allowlist guard, which already fails safe.
+
 ## 2026-07-23 — Switched to a fresh, self-created Supabase project
 
 **Decision**: stop using `irzxntglqqwyrvmkxkpy` (the original project, provisioned through Lovable Cloud) and move to a new project, `iqqkvnjwrgyiigafxsqp`, created directly with no Lovable involvement.

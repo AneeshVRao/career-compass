@@ -1,6 +1,17 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, KanbanSquare, Calendar, List, Settings, Stamp, Plus } from "lucide-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  LayoutDashboard,
+  KanbanSquare,
+  Calendar,
+  List,
+  Settings,
+  Stamp,
+  Plus,
+  LogOut,
+} from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 import type { ReactNode } from "react";
 
 const NAV = [
@@ -13,6 +24,18 @@ const NAV = [
 
 export function AppShell({ children, onNew }: { children: ReactNode; onNew?: () => void }) {
   const { location } = useRouterState();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  async function onSignOut() {
+    try {
+      await signOut();
+      await navigate({ to: "/login" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not sign out.");
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <aside className="hidden md:flex w-64 shrink-0 flex-col bg-sidebar border-r border-sidebar-border">
@@ -69,6 +92,22 @@ export function AppShell({ children, onNew }: { children: ReactNode; onNew?: () 
           <p className="text-[10px] font-mono text-muted-foreground tracking-wide">
             Season in progress
           </p>
+          {user && (
+            <div className="mt-3">
+              <p
+                className="truncate text-[11px] text-sidebar-foreground/70"
+                title={user.email ?? ""}
+              >
+                {user.email}
+              </p>
+              <button
+                onClick={onSignOut}
+                className="mt-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground hover:text-brass transition-colors cursor-pointer"
+              >
+                <LogOut className="h-3 w-3" strokeWidth={1.75} /> Sign out
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -80,14 +119,25 @@ export function AppShell({ children, onNew }: { children: ReactNode; onNew?: () 
           </div>
           <span className="font-serif text-base">Placement</span>
         </div>
-        {onNew && (
-          <button
-            onClick={onNew}
-            className="flex items-center gap-1 rounded-sm border border-brass/50 text-brass px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider cursor-pointer"
-          >
-            <Plus className="h-3.5 w-3.5" /> New
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {onNew && (
+            <button
+              onClick={onNew}
+              className="flex items-center gap-1 rounded-sm border border-brass/50 text-brass px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" /> New
+            </button>
+          )}
+          {user && (
+            <button
+              onClick={onSignOut}
+              aria-label="Sign out"
+              className="grid h-8 w-8 place-items-center rounded-sm border border-sidebar-border text-muted-foreground hover:text-brass transition-colors cursor-pointer"
+            >
+              <LogOut className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+          )}
+        </div>
       </div>
 
       <main className="flex-1 min-w-0 pt-14 md:pt-0">

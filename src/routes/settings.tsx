@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { EventDrawer } from "@/components/EventDrawer";
 import { getSettings, updateSettings } from "@/lib/events-api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,11 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsView() {
+  // Settings was the one page that passed no `onNew`, so AppShell hid the "New
+  // entry" button here and every nav item shifted up by its height — the
+  // sidebar visibly jumped when you navigated to this page. It gets the same
+  // shared drawer the other four pages use, so the button is real, not padding.
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["settings"], queryFn: getSettings });
   const [email, setEmail] = useState("");
@@ -48,7 +54,7 @@ function SettingsView() {
   });
 
   return (
-    <AppShell>
+    <AppShell onNew={() => setDrawerOpen(true)}>
       <div className="p-4 md:p-8 max-w-2xl mx-auto">
         <header className="mb-6">
           <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-brass mb-1">
@@ -68,13 +74,18 @@ function SettingsView() {
           </div>
 
           <div className="grid gap-2">
-            <Label>Recipient email</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Label htmlFor="reminder-email">Recipient email</Label>
+            <Input
+              id="reminder-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
 
           <div className="grid gap-2">
-            <Label>From address</Label>
-            <Input value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Label htmlFor="from-email">From address</Label>
+            <Input id="from-email" value={from} onChange={(e) => setFrom(e.target.value)} />
             <p className="text-xs text-muted-foreground">
               Use <code>onboarding@resend.dev</code> until you verify a domain in Resend. Verified
               domain? Use e.g. <code>Reminders &lt;alerts@yourdomain.com&gt;</code>.
@@ -101,6 +112,7 @@ function SettingsView() {
           </ul>
         </Card>
       </div>
+      <EventDrawer open={drawerOpen} onOpenChange={setDrawerOpen} event={null} />
     </AppShell>
   );
 }
