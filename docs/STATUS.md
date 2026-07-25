@@ -2,8 +2,17 @@
 
 Living punch list — update this as items get done rather than treating it as a one-time snapshot.
 
-1. **Visually verify the redesign.** Nothing about the `docs/DESIGN.md` "dossier" redesign has actually been looked at in a rendered browser — the Playwright automation tool disconnected mid-session before a screenshot could happen. Everything was confirmed structurally (build passes, the right CSS/copy is served) but not eyeballed. Run `bun run dev` (or visit the live Render URL) and look at all five pages before trusting it's actually good.
-2. **Turn on GitHub branch protection for `main`.** The repo now has real history (bootstrapped with one direct push, see `docs/DECISIONS.md`) — enabling branch protection turns "every change gets a PR" from a convention into something GitHub actually enforces.
+1. **Apply the multi-user auth migration, then backfill, then lock down.** Three ordered steps, all needing the Supabase SQL editor (no CLI path in this environment):
+   1. Run `supabase/migrations/20260725120000_multi_user_auth.sql`.
+   2. Create your account at `/login`, then run the backfill SQL to claim the existing ownerless `events`/`settings` rows. **Between these steps your existing events will appear to have vanished from the app** — that's RLS working as intended on unowned rows, not data loss.
+   3. Only then run `supabase/migrations/20260725120100_lockdown_user_id_not_null.sql`.
+   Full runbook: `docs/DEPLOYMENT.md` → "Multi-user data backfill runbook".
+2. **Enable Google OAuth in the Supabase dashboard.** The "Sign in with Google" button on `/login` returns a provider-not-enabled error until this is done (email/password works regardless). Needs a Google Cloud OAuth client, the provider toggled on in Supabase, and both localhost + Render `/auth/callback` URLs allowlisted. Runbook: `docs/DEPLOYMENT.md` → "Google OAuth setup runbook". Decide the "Confirm email" setting at the same time — recommended **on**, since signup is open.
+3. **Visually verify the redesign, now including `/login`.** Nothing about the `docs/DESIGN.md` "dossier" redesign has actually been looked at in a rendered browser — the Playwright automation tool disconnected mid-session before a screenshot could happen. Everything was confirmed structurally (build passes, the right CSS/copy is served) but not eyeballed. Run `bun run dev` (or visit the live Render URL) and look at all five pages plus the new sign-in page before trusting it's actually good.
+4. **Run the new E2E auth specs against a real project.** `e2e/auth.spec.ts` was written but not executed here (it needs the migration applied first, since every assertion depends on the redirect-to-`/login` behaviour). Run `bunx playwright test e2e/auth.spec.ts` after step 1. Note it creates a disposable `__e2e_test__+<ts>@example.com` account and deletes it via the admin API in `afterEach`.
+5. **Turn on GitHub branch protection for `main`.** The repo now has real history (bootstrapped with one direct push, see `docs/DECISIONS.md`) — enabling branch protection turns "every change gets a PR" from a convention into something GitHub actually enforces.
+
+~~Multi-user auth implementation~~ — done in code on `feat/multi-user-auth`: cookie-based Supabase sessions, `/login` (email/password + Google), one server-side route guard, per-user RLS migrations, per-user reminder fan-out, sign-out in `AppShell`. Build, unit tests, and lint verified. The remaining work is all dashboard/SQL-editor configuration — items 1, 2 and 4 above.
 
 ~~Apply the initial schema migration~~ — done. The new Supabase project (`iqqkvnjwrgyiigafxsqp`) has its `events`/`settings` tables, enums, RLS, and extensions in place.
 
