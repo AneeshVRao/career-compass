@@ -42,8 +42,12 @@ export async function setStatus(id: string, status: EventStatus) {
   return updateEvent(id, { status });
 }
 
+// RLS restricts this to the current user's own row, and a unique index on
+// settings.user_id guarantees there is at most one. The old `.limit(1)` here was
+// a workaround for the single-shared-row era; keeping it would silently mask a
+// duplicate-row bug instead of surfacing it, so maybeSingle() stands alone.
 export async function getSettings() {
-  const { data, error } = await supabase.from("settings").select("*").limit(1).maybeSingle();
+  const { data, error } = await supabase.from("settings").select("*").maybeSingle();
   if (error) throw error;
   return data;
 }

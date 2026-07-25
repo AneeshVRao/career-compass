@@ -34,6 +34,37 @@ export type ReminderEvent = {
   prep_notes: string | null;
 };
 
+export const DEFAULT_FROM_EMAIL = "Placement Tracker <onboarding@resend.dev>";
+
+export type ReminderRecipient = {
+  user_id: string | null;
+  reminder_email: string;
+  reminders_enabled: boolean;
+  from_email: string;
+};
+
+// Pairs each due event with its owner's reminder settings. Multi-user now, so an
+// event is only sent when it has an owner whose settings row exists and has
+// reminders enabled. Events with user_id null (not yet backfilled) and events
+// whose owner opted out are dropped rather than defaulting to some other user's
+// email address.
+export function planReminderSends<
+  R extends ReminderRecipient,
+  E extends { user_id: string | null },
+>(recipients: readonly R[], events: readonly E[]): { recipient: R; event: E }[] {
+  const enabledByUser = new Map(
+    recipients
+      .filter((r) => r.user_id !== null && r.reminders_enabled)
+      .map((r) => [r.user_id as string, r]),
+  );
+
+  return events.flatMap((event) => {
+    if (event.user_id === null) return [];
+    const recipient = enabledByUser.get(event.user_id);
+    return recipient ? [{ recipient, event }] : [];
+  });
+}
+
 export function renderReminderEmail(ev: ReminderEvent, start: Date): string {
   const when = start.toLocaleString([], {
     weekday: "long",

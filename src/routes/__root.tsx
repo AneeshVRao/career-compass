@@ -3,14 +3,21 @@ import {
   Outlet,
   Link,
   createRootRouteWithContext,
+  redirect,
   useRouter,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/lib/auth";
+import { fetchAuthUser, type AuthUser } from "@/lib/auth-server";
 
 import appCss from "../styles.css?url";
+
+// Everything not listed here requires a session, so a newly added page is
+// protected by default rather than by remembering to add a guard to it.
+const PUBLIC_PATHS = ["/login", "/auth/callback"];
 
 function NotFoundComponent() {
   return (
@@ -69,7 +76,19 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+export const Route = createRootRouteWithContext<{
+  queryClient: QueryClient;
+  user?: AuthUser | null;
+}>()({
+  // Resolved server-side from the auth cookie, so protected pages never render
+  // an unauthenticated first paint and then flicker to a redirect.
+  beforeLoad: async ({ location }) => {
+    const user = await fetchAuthUser();
+    if (!user && !PUBLIC_PATHS.includes(location.pathname)) {
+      throw redirect({ to: "/login" });
+    }
+    return { user };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -112,11 +131,13 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
+  const { queryClient, user } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <Toaster richColors position="top-right" />
+      <AuthProvider initialUser={user ?? null}>
+        <Outlet />
+        <Toaster richColors position="top-right" />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
