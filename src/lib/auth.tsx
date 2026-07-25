@@ -32,12 +32,21 @@ export function AuthProvider({
   useEffect(() => {
     let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active) return;
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+        setLoading(false);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        // Don't leave the UI stuck on a spinner if the session lookup rejects;
+        // onAuthStateChange is still attached and can recover the session later.
+        console.error("[auth] getSession failed", error);
+        setLoading(false);
+      });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);

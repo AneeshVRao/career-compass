@@ -1,7 +1,7 @@
 // Server-side Supabase client with service role key - bypasses RLS.
 // Use this for admin operations in server functions and server routes only.
 // For user-scoped (RLS-enforced) server queries, use getSupabaseServerClient()
-// from @/lib/auth-server instead.
+// from ./client.request.server instead (@/lib/auth-server only dynamic-imports it).
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { createSupabaseFetch } from "./fetch";
