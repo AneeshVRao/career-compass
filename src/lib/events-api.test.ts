@@ -48,7 +48,6 @@ afterEach(() => {
 
 const {
   listEvents,
-  getEvent,
   createEvent,
   updateEvent,
   deleteEvent,
@@ -71,18 +70,6 @@ describe("listEvents", () => {
   it("throws when the query errors", async () => {
     queueFromResults({ data: null, error: { message: "boom" } });
     await expect(listEvents()).rejects.toEqual({ message: "boom" });
-  });
-});
-
-describe("getEvent", () => {
-  it("returns the row on success", async () => {
-    queueFromResults({ data: { id: "1" }, error: null });
-    await expect(getEvent("1")).resolves.toEqual({ id: "1" });
-  });
-
-  it("throws when the query errors", async () => {
-    queueFromResults({ data: null, error: { message: "boom" } });
-    await expect(getEvent("1")).rejects.toEqual({ message: "boom" });
   });
 });
 

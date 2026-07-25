@@ -1,6 +1,6 @@
 # Design system: "The Dossier"
 
-**This has never been visually verified.** The Playwright browser-automation tool disconnected mid-session before a screenshot could be taken; everything here was confirmed structurally (build succeeds, the right classes/tokens/copy are present in the served HTML and CSS) but never actually looked at in a rendered browser. Treat this as a strong first draft that needs a human eye before being considered final — see `docs/STATUS.md`.
+**Visually verified.** All six pages have now been rendered and screenshotted at 1440×900 and 390×844, signed in against the live project with seeded events covering every status. The direction below holds up as built. Four problems the screenshots exposed — `/login` never saying what the product is, the sidebar jumping on `/settings`, a Recharts tooltip reading `value : 1`, and a duplicate `<h1>` — were fixed; `docs/STATUS.md` item 3 records them, along with two things that looked wrong in a stitched full-page capture and are not.
 
 ## The concept
 
@@ -43,6 +43,8 @@ The IBM Plex superfamily — Sans, Serif, and Mono — loaded together via a sin
 `src/components/EventCard.tsx` is the one thing designed to be memorable. It's a parchment-colored card with a dashed vertical "perforation" line separating the main body (type badge, company name in serif, role, a dashed-rule meta section with mono date/time) from a narrow right-hand stub containing the event type code rotated 90° — mimicking a physical ticket or admit-card stub you'd tear along a perforated line. It recurs on the dashboard, the board, and (in spirit, via the table's own styling) the list view, so it's the one consistent visual anchor across the whole app.
 
 High-priority events get a small rotated "Priority" badge outlined in stamp-red, evoking an actual ink stamp rather than a generic colored pill.
+
+It also appears on `/login` as a **specimen entry** — the real `EventCard` component fed a fixed literal row (`SPECIMEN_EVENT` in `src/routes/login.tsx`), wrapped in `pointer-events-none` because it is a sample document, not a control. Rendering the actual component rather than a mock-up of it means the preview a new visitor sees cannot drift from the thing they get after signing in. The row's dates are hardcoded literals on purpose: a relative date computed at render time would differ between server and client and hydrate as a mismatch.
 
 ## Status/type color mapping
 
