@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-"Placement Tracker" — a personal, single-user kanban/calendar tracker for campus placement events (PPTs, online/offline tests, interview rounds), with 24h-before email reminders. See `README.md` for the feature/event-model description, `docs/GLOSSARY.md` if any of that vocabulary is unfamiliar.
+"Placement Tracker" — a kanban/calendar tracker for campus placement events (PPTs, online/offline tests, interview rounds), with 24h-before email reminders. **Multi-user**: accounts via email/password or Google, open signup, each user sees only their own events (user-scoped RLS). See `README.md` for the feature/event-model description, `docs/GLOSSARY.md` if any of that vocabulary is unfamiliar.
 
 ## Docs
 
@@ -48,13 +48,15 @@ Run a single Vitest file/test: `bunx vitest run src/lib/domain.test.ts -t "retur
 
 **`vite.config.ts`** — a plain, self-owned `defineConfig` (no wrapper package). Composes Tailwind, tsconfig-paths, the TanStack Start plugin, `nitro/vite` (build-only, `node-server` preset), and the React plugin. Every plugin used is a direct `package.json` dependency.
 
-**Supabase client split** — `client.ts` (browser/SSR, anon key, RLS-enforced, used by `events-api.ts`) vs. `client.server.ts` (`supabaseAdmin`, service-role, **bypasses RLS**, only ever dynamic-imported from server route handlers) vs. the JWT scaffolding: `auth-attacher.ts` **is** live — it's registered as `functionMiddleware` in `src/start.ts` — while `auth-middleware.ts` genuinely has no importer anywhere. Getting this split wrong is the easiest way to leak the service-role key into the client bundle; it was last verified clean by grepping the built `.output/public/` bundle, which is the only check that actually proves it.
+**Supabase client split** — three clients: `client.ts` (browser, anon key, RLS-enforced, **cookie** session via `@supabase/ssr`, used by `events-api.ts`), `client.request.server.ts` (`getSupabaseServerClient()`, per-request cookie-aware, RLS-enforced, runs as the logged-in user), and `client.server.ts` (`supabaseAdmin`, service-role, **bypasses RLS**). Both server clients must be dynamic-imported from anything client-reachable — one carries the service-role key, the other imports `@tanstack/react-start/server`, which `importProtection` rejects in the client graph. Getting this wrong is the easiest way to break the build or leak a key; read `docs/ARCHITECTURE.md`'s client-split section before touching it.
 
-**Routing** — file-based per `src/routes/README.md`. Five pages (`/`, `/board`, `/calendar`, `/list`, `/settings`) share one query key (`["events"]`) and one shared `EventDrawer` for create/edit — there is no `/event/$id` detail route.
+**Auth** — one server-side guard in `__root.tsx`'s `beforeLoad` with a `PUBLIC_PATHS` allowlist, so new pages are protected by default. `src/lib/auth.tsx` (`AuthProvider`/`useAuth`) holds client session state. Migrations for per-user RLS are applied in a deliberate two-step order with a manual backfill in between — see `docs/DEPLOYMENT.md`.
+
+**Routing** — file-based per `src/routes/README.md`. Five app pages (`/`, `/board`, `/calendar`, `/list`, `/settings`) share one query key (`["events"]`) and one shared `EventDrawer` for create/edit — there is no `/event/$id` detail route. Plus two public routes: `/login` and the server-only `/auth/callback`.
 
 **Domain layer** — `src/lib/domain.ts` is the single TS source of truth for the four Postgres enums; `src/lib/events-api.ts` is the _only_ data-access layer routes/components should call.
 
-**Reminder pipeline** — `src/lib/reminders.ts` (pure logic) → `src/routes/api/public/run-reminders.ts` (guarded by a `REMINDER_CRON_SECRET` shared-secret header despite the `api/public/` path) → a `pg_cron` job. Full setup runbook in `docs/DEPLOYMENT.md`.
+**Reminder pipeline** — `src/lib/reminders.ts` (pure logic, incl. `planReminderSends()` which fans out per user) → `src/routes/api/public/run-reminders.ts` (guarded by a `REMINDER_CRON_SECRET` shared-secret header despite the `api/public/` path; runs via `supabaseAdmin` so per-user RLS doesn't hide rows from the cron) → a `pg_cron` job. Full setup runbook in `docs/DEPLOYMENT.md`.
 
 **SSR error handling** — two layers (`src/start.ts`'s middleware, `src/server.ts`'s h3-swallowed-error detection) catching two different failure modes. Don't simplify without reading `docs/ARCHITECTURE.md`'s explanation of what each one specifically catches.
 

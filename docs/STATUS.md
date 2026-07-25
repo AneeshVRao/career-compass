@@ -2,27 +2,25 @@
 
 Living punch list — update this as items get done rather than treating it as a one-time snapshot.
 
-<<<<<<< HEAD
+## 🔴 The live database has already been locked down — pre-auth code cannot work against it
 
-## 🔴 Blocking: the live database denies the `anon` role
-
-**Found 2026-07-26.** Every client-side read and write against the production Supabase project fails:
+**Confirmed 2026-07-26.** Every client-side read and write against the production Supabase project fails:
 
 ```
 GET /rest/v1/events   →  401
 {"code":"42501","message":"permission denied for table events"}
 ```
 
-Same for `settings`. The service-role key returns `200`, so the data and the schema are fine. This is a **table-privilege (`GRANT`) denial, not RLS** — an RLS policy that matches nothing returns `200 []`, never `42501`. Since the deployed app reads with the publishable key and has no login, **the live site currently cannot read or write anything.**
+Same for `settings`. The service-role key returns `200`, so the data and the schema are fine — and the reminder cron, which uses that key, is unaffected. This is a **table-privilege (`GRANT`) denial, not RLS**; an RLS policy that matches nothing returns `200 []`, never `42501`.
 
-What's confusing about it: `supabase/migrations/20260722131142_*.sql` lines 36 and 57 _do_ `GRANT SELECT, INSERT, UPDATE, DELETE ON public.events, public.settings TO anon, authenticated`. The tables plainly exist, so that migration ran. Something revoked the grants afterwards and it isn't in version control — the branch migrations drop and recreate _policies_ but never touch grants.
+**This is intentional, not drift.** `anon`'s grants were revoked by hand as part of the multi-user auth rollout (see `docs/DATABASE.md` → "Row Level Security"), because an unauthenticated visitor no longer has a shared dataset to legitimately read. It looks like unexplained breakage only because **the revoke was never captured in a migration** — `supabase/migrations/` still says `GRANT ... TO anon, authenticated`, so the committed schema and the live database disagree.
 
-**Do not reflexively re-grant `anon`.** The multi-user-auth work exists specifically to replace the wide-open `USING (true)` policies with per-user ones; if the revocation was deliberate, re-granting re-exposes the whole database to anyone who finds the URL. Two coherent paths:
+Two things follow, and the second is the one that bites:
 
-- **Land multi-user auth** (chosen). Access comes from real logins, `anon` stays locked down.
-- **Re-grant `anon`** to restore the single-user app as-is, accepting that the database is public to anyone with the URL.
+1. A fresh project replayed from `supabase/migrations/` will **not** match production. Re-apply `revoke all on public.events, public.settings from anon;` by hand, or add it as a migration.
+2. **Shipping `main` without the auth work leaves the deployed app non-functional.** Pre-auth code authenticates as `anon` and `anon` can no longer read anything. Landing multi-user auth is therefore not optional polish — it is what makes the deployment work again.
 
-**Verify before merging the auth branch** — its policies key off `auth.uid() = user_id`, which needs the **`authenticated`** role to hold grants. Only `anon` was confirmed broken; `authenticated` was never tested, because doing so means creating a real user in the production database. If it's missing too, the auth branch fails identically after login and the cause won't be obvious:
+**⚠️ Still worth verifying before trusting the auth deploy.** The new policies key off `auth.uid() = user_id`, which requires the **`authenticated`** role to hold table grants. `docs/DATABASE.md` states it keeps all four verbs, but that's a record of intent — and intent and reality have already diverged once here, which is the entire reason this section exists. Only `anon` was empirically confirmed; testing `authenticated` means creating a real user in the production database. If it lost its grants too, the app fails _identically_ after login and the cause will not be obvious:
 
 ```sql
 select grantee, privilege_type
@@ -31,14 +29,34 @@ where table_name in ('events','settings')
   and grantee in ('anon','authenticated');
 ```
 
-If `authenticated` is absent, add a `GRANT ... TO authenticated` migration to the branch. That's safe — RLS still scopes every row to its owner.
+If `authenticated` is absent from those results, add a migration granting it. That's safe — RLS still scopes every row to its owner:
+
+```sql
+grant select, insert, update, delete on public.events, public.settings to authenticated;
+```
 
 ## Punch list
 
-1. **Delete the dead shadcn scaffolding.** 37 of the 48 components in `src/components/ui/` have no importer anywhere in the five routes, along with ~27 dependencies that exist only to serve them (`embla-carousel-react`, `input-otp`, `cmdk`, `vaul`, `react-resizable-panels`, `react-day-picker`, and 21 `@radix-ui/*` packages). Verified by grepping every UI file for importers. Deliberately deferred to its own PR so the diff stays reviewable — and it should land _after_ the auth work, which already deletes some files. Two caveats found while auditing: `use-mobile.tsx` is _not_ directly dead (`sidebar.tsx` imports it, and `sidebar.tsx` is itself orphaned — transitively dead, so it goes with the batch), and `getEvent()` in `events-api.ts` is only reachable from its own test.
-2. **Widen coverage beyond three files.** `coverage.include` is scoped to `domain.ts`, `reminders.ts`, `events-api.ts` — a deliberate choice (see `docs/DEVELOPMENT.md`), but it means the 80% threshold says nothing about the reminder API route, which until recently had no tests at all and is the one piece that sends real email. The auth branch adds `-run-reminders.test.ts`; add it to `coverage.include` when that lands.
-3. **Visually verify the redesign.** Nothing about the `docs/DESIGN.md` "dossier" redesign has actually been looked at in a rendered browser — the Playwright automation tool disconnected mid-session before a screenshot could happen. Everything was confirmed structurally (build passes, the right CSS/copy is served) but not eyeballed. Run `bun run dev` (or visit the live Render URL) and look at all five pages before trusting it's actually good.
-4. **Turn on GitHub branch protection for `main`.** The repo now has real history (bootstrapped with one direct push, see `docs/DECISIONS.md`) — enabling branch protection turns "every change gets a PR" from a convention into something GitHub actually enforces.
+1. **Apply the multi-user auth migration, then backfill, then lock down.** Three ordered steps, all needing the Supabase SQL editor (no CLI path in this environment):
+   1. Run `supabase/migrations/20260725120000_multi_user_auth.sql`.
+   2. Create your account at `/login`, then run the backfill SQL to claim the existing ownerless `events`/`settings` rows. **Between these steps your existing events will appear to have vanished from the app** — that's RLS working as intended on unowned rows, not data loss.
+   3. Only then run `supabase/migrations/20260725120100_lockdown_user_id_not_null.sql`.
+
+   Full runbook: `docs/DEPLOYMENT.md` → "Multi-user data backfill runbook". Check the `authenticated` grants above at the same time.
+
+2. **Enable Google OAuth in the Supabase dashboard.** The "Sign in with Google" button on `/login` returns a provider-not-enabled error until this is done (email/password works regardless). Needs a Google Cloud OAuth client, the provider toggled on in Supabase, and both localhost + Render `/auth/callback` URLs allowlisted. Runbook: `docs/DEPLOYMENT.md` → "Google OAuth setup runbook". Decide the "Confirm email" setting at the same time — recommended **on**, since signup is open.
+
+3. **Delete the dead shadcn scaffolding.** 37 of the 48 components in `src/components/ui/` have no importer anywhere in the app, along with ~27 dependencies that exist only to serve them (`embla-carousel-react`, `input-otp`, `cmdk`, `vaul`, `react-resizable-panels`, `react-day-picker`, and 21 `@radix-ui/*` packages). Verified by grepping every UI file for importers. Deliberately deferred to its own PR so the diff stays reviewable, and sequenced after the auth work, which already deletes some files. Two caveats found while auditing: `use-mobile.tsx` is _not_ directly dead (`sidebar.tsx` imports it, and `sidebar.tsx` is itself orphaned — transitively dead, so it goes with the batch), and `getEvent()` in `events-api.ts` is only reachable from its own test.
+
+4. **Widen coverage beyond three files.** `coverage.include` is scoped to `domain.ts`, `reminders.ts`, `events-api.ts` — a deliberate choice (see `docs/DEVELOPMENT.md`), but it means the 80% threshold says nothing about the reminder API route, the one piece that sends real email. `src/routes/api/public/-run-reminders.test.ts` now exists; add it to `coverage.include`.
+
+5. **Run the new E2E auth specs against a real project.** `e2e/auth.spec.ts` was written but not executed here (it needs the migration applied first, since every assertion depends on the redirect-to-`/login` behaviour). Run `bunx playwright test e2e/auth.spec.ts` after step 1. Note it creates a disposable `__e2e_test__+<ts>@example.com` account and deletes it via the admin API in `afterEach`.
+
+6. **Visually verify the redesign, now including `/login`.** Nothing about the `docs/DESIGN.md` "dossier" redesign has actually been looked at in a rendered browser — the Playwright automation tool disconnected mid-session before a screenshot could happen. Everything was confirmed structurally (build passes, the right CSS/copy is served) but not eyeballed. Run `bun run dev` (or visit the live Render URL) and look at all five pages plus the new sign-in page before trusting it's actually good.
+
+7. **Turn on GitHub branch protection for `main`.** The repo now has real history (bootstrapped with one direct push, see `docs/DECISIONS.md`) — enabling branch protection turns "every change gets a PR" from a convention into something GitHub actually enforces.
+
+~~Multi-user auth implementation~~ — done in code: cookie-based Supabase sessions, `/login` (email/password + Google), one server-side route guard, per-user RLS migrations, per-user reminder fan-out, sign-out in `AppShell`. Build, unit tests, and lint verified. The remaining work is all dashboard/SQL-editor configuration — items 1, 2 and 5 above.
 
 ~~Run the reminder cron migration in the Supabase SQL editor~~ — done. The job is scheduled and verified end-to-end. See `docs/DEPLOYMENT.md`.
 
@@ -49,5 +67,3 @@ If `authenticated` is absent, add a `GRANT ... TO authenticated` migration to th
 ~~Deploy to Render~~ — done. Live at `https://career-compass-nowy.onrender.com` (Blueprint ID `exs-d9h1f1brjlhs73dcb7ag`). `/`, `/board`, `/calendar` verified with 200s.
 
 ~~Set production env vars on Render~~ — done as part of the Blueprint deploy above.
-
-~~Run the reminder cron migration~~ — done. `private.app_secrets` created and seeded, cron job `placement-tracker-reminders` scheduled (job id 1, every 15 min) against the real Render URL. Verified end-to-end with a manual `curl` to `/api/public/run-reminders`: `{"ok":true,"checked":0,"results":[]}` — auth, settings lookup, and the event-window query all work. (`checked: 0` is correct — nothing is currently inside the 23–25h reminder window.) Hit one bug along the way: Render's env var text field silently inserted a space in the middle of the pasted `SUPABASE_SERVICE_ROLE_KEY` JWT, which broke Supabase auth and surfaced as a misleading `"No settings row"` error rather than an auth failure — see the gotcha note in `docs/DEPLOYMENT.md`.
