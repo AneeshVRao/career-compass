@@ -1,6 +1,14 @@
 # Placement Tracker
 
+<<<<<<< HEAD
 A personal, single-user tracker for campus placement season — every PPT, online test, and interview round in one place, on a board, a calendar, and a list, with an email reminder 24 hours before anything you have to show up to.
+=======
+A multi-user tracker for campus placement events (PPTs, online/offline tests, and interview rounds), with 24-hour-before email reminders.
+
+## Accounts
+
+Signup is open — anyone can create an account with an email address and password, or sign in with Google. Every event, and each user's reminder settings, belong to the account that created them: users only ever see and edit their own data (enforced in the database by per-user row-level security, not just in the UI). Each account gets its own reminder recipient address, so reminders fan out per owner.
+>>>>>>> 8d3b0d3 (docs: correct single-user claims and record deferred audit follow-ups)
 
 Built because placement season is a scheduling problem disguised as a career problem: a dozen companies, each with its own multi-round pipeline, all moving at once, and the cost of missing one slot is the whole pipeline.
 
@@ -19,7 +27,31 @@ Upcoming → PPT Done → OT Scheduled → OT Cleared → Interview R1 → Inter
 
 ## Quick start
 
+<<<<<<< HEAD
 Package manager is [bun](https://bun.sh), exclusively — `bun.lock` and `bunfig.toml` are both committed, and neither `package-lock.json` nor `yarn.lock` should ever appear beside them.
+=======
+1. **Kanban** (`/board`) — drag between statuses, filter by company/role/round.
+2. **Calendar** (`/calendar`) — month view, color-coded by type, click to open.
+3. **Dashboard** (`/`) — counts by status, conversion funnel, events this week, upcoming next 7 days.
+4. **List / Table** (`/list`) — sortable, searchable, quick edit.
+5. **Settings** (`/settings`) — reminder recipient email, sender address, on/off toggle (per account).
+
+Plus **Sign in** (`/login`) — email/password or Google. All five views above require an account.
+
+## Reminders (24h before each event)
+
+- **Trigger**: a `pg_cron` job hits the `/api/public/run-reminders` route every 15 minutes; the route finds events starting in ~24h with `reminder_sent = false`, sends an email via Resend to each event owner's own recipient address, and flips the flag.
+- **Auth**: the route requires a shared-secret header (`x-reminder-cron-secret`, checked against `REMINDER_CRON_SECRET`) — see `supabase/migrations/` for how the cron job is wired up.
+- **Idempotent**: one reminder per event, guarded by `reminder_sent`.
+
+## Stack
+
+TanStack Start (file-based router + SSR) + TypeScript + React 19 + Tailwind v4 + shadcn/ui + TanStack Query + Supabase (Postgres) + Resend (email) + dnd-kit (kanban) + Recharts (dashboard).
+
+## Development
+
+Package manager is [bun](https://bun.sh).
+>>>>>>> 8d3b0d3 (docs: correct single-user claims and record deferred audit follow-ups)
 
 ```sh
 bun install
