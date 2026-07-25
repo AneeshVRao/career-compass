@@ -27,14 +27,23 @@ function makeBuilder(result: QueryResult) {
   return builder;
 }
 
+// Builders are captured so a test can assert which chain methods a query used,
+// not just what it resolved to.
+const builders: Record<string, unknown>[] = [];
+
 function queueFromResults(...results: QueryResult[]) {
   for (const result of results) {
-    fromMock.mockImplementationOnce(() => makeBuilder(result));
+    fromMock.mockImplementationOnce(() => {
+      const builder = makeBuilder(result);
+      builders.push(builder);
+      return builder;
+    });
   }
 }
 
 afterEach(() => {
   fromMock.mockReset();
+  builders.length = 0;
 });
 
 const {
@@ -127,9 +136,28 @@ describe("setStatus", () => {
 });
 
 describe("getSettings", () => {
-  it("returns the settings row on success", async () => {
-    queueFromResults({ data: { id: "s1", reminder_email: "a@b.com" }, error: null });
-    await expect(getSettings()).resolves.toEqual({ id: "s1", reminder_email: "a@b.com" });
+  it("returns the current user's settings row on success", async () => {
+    queueFromResults({ data: { id: "s1", user_id: "u1", reminder_email: "a@b.com" }, error: null });
+    await expect(getSettings()).resolves.toEqual({
+      id: "s1",
+      user_id: "u1",
+      reminder_email: "a@b.com",
+    });
+    expect(fromMock).toHaveBeenCalledWith("settings");
+  });
+
+  it("returns null when the user has no settings row yet", async () => {
+    queueFromResults({ data: null, error: null });
+    await expect(getSettings()).resolves.toBeNull();
+  });
+
+  // RLS scopes the query to one user, so the old global single-row `.limit(1)`
+  // must be gone: keeping it would hide a duplicate-row bug instead of erroring.
+  it("does not fall back to the global single-row limit(1) shortcut", async () => {
+    queueFromResults({ data: { id: "s1", user_id: "u1" }, error: null });
+    await getSettings();
+    expect(builders[0].limit).not.toHaveBeenCalled();
+    expect(builders[0].maybeSingle).toHaveBeenCalled();
   });
 
   it("throws when the query errors", async () => {

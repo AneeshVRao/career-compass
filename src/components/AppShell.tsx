@@ -94,7 +94,10 @@ export function AppShell({ children, onNew }: { children: ReactNode; onNew?: () 
           </p>
           {user && (
             <div className="mt-3">
-              <p className="truncate text-[11px] text-sidebar-foreground/70" title={user.email ?? ""}>
+              <p
+                className="truncate text-[11px] text-sidebar-foreground/70"
+                title={user.email ?? ""}
+              >
                 {user.email}
               </p>
               <button
