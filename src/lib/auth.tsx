@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "@tanstack/react-router";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import type { AuthUser } from "@/lib/auth-server";
+import type { AuthUser } from "@/lib/auth-types";
 
 type AuthContextValue = {
   user: User | null;
@@ -24,9 +24,10 @@ export function AuthProvider({
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  // Seed from the server-resolved user so the first paint already reflects auth
-  // state; the real Session object arrives from getSession() right after mount.
-  const [loading, setLoading] = useState(initialUser !== null && session === null);
+  // The server already told us whether someone is signed in, so only report
+  // "loading" when we're waiting on getSession() to supply the Session object for
+  // a user we know exists. An anonymous visitor is never in a loading state.
+  const [loading, setLoading] = useState(initialUser !== null);
 
   useEffect(() => {
     let active = true;
