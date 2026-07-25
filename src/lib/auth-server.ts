@@ -16,9 +16,8 @@ export type { AuthUser } from "./auth-types";
 // bounce already-signed-in visitors away.
 export const fetchAuthUser = createServerFn({ method: "GET" }).handler(
   async (): Promise<AuthUser | null> => {
-    const { getSupabaseServerClient } = await import(
-      "@/integrations/supabase/client.request.server"
-    );
+    const { getSupabaseServerClient } =
+      await import("@/integrations/supabase/client.request.server");
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return null;

@@ -19,9 +19,8 @@ async function handleCallback(request: Request): Promise<Response> {
   const next = url.searchParams.get("next") ?? "/";
 
   if (code) {
-    const { getSupabaseServerClient } = await import(
-      "@/integrations/supabase/client.request.server"
-    );
+    const { getSupabaseServerClient } =
+      await import("@/integrations/supabase/client.request.server");
     const supabase = getSupabaseServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
