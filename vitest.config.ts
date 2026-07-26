@@ -5,7 +5,9 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     environment: "node",
-    exclude: ["e2e/**", "node_modules/**"],
+    // `**/` matters: a bare `node_modules/**` only masks the root one, so any
+    // nested copy (e.g. a git worktree under .claude/) gets its vendored tests collected.
+    exclude: ["e2e/**", "**/node_modules/**", ".claude/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
