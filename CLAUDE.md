@@ -8,16 +8,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Docs
 
-| File | What's in it |
-|---|---|
-| `docs/ARCHITECTURE.md` | Deep dive: routing, `vite.config.ts` plugin-by-plugin, the Supabase client split, domain layer, reminder pipeline, SSR error handling |
-| `docs/DATABASE.md` | Full `events`/`settings` schema, enums, RLS, migration history |
-| `docs/DEPLOYMENT.md` | Deploy target, required prod env vars, the reminder-cron setup runbook, current deploy status |
-| `docs/DEVELOPMENT.md` | Testing philosophy, and every dev-environment gotcha found so far (Windows/bun PATH, `vite preview`, CRLF lint noise, stale lockfile registry) |
-| `docs/DESIGN.md` | The "dossier" visual design system — colors, type, the signature EventCard element, what was rejected and why |
-| `docs/DECISIONS.md` | Dated log of non-obvious calls and why, so they don't get re-litigated |
-| `docs/GLOSSARY.md` | Domain vocabulary (PPT, OT, DC, HR round, etc.) and the pipeline stages explained |
-| `docs/STATUS.md` | Living next-steps punch list |
+| File                   | What's in it                                                                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/ARCHITECTURE.md` | Deep dive: routing, `vite.config.ts` plugin-by-plugin, the Supabase client split, domain layer, reminder pipeline, SSR error handling          |
+| `docs/DATABASE.md`     | Full `events`/`settings` schema, enums, RLS, migration history                                                                                 |
+| `docs/DEPLOYMENT.md`   | Deploy target, required prod env vars, the reminder-cron setup runbook, current deploy status                                                  |
+| `docs/DEVELOPMENT.md`  | Testing philosophy, and every dev-environment gotcha found so far (Windows/bun PATH, `vite preview`, CRLF lint noise, stale lockfile registry) |
+| `docs/DESIGN.md`       | The "dossier" visual design system — colors, type, the signature EventCard element, what was rejected and why                                  |
+| `docs/DECISIONS.md`    | Dated log of non-obvious calls and why, so they don't get re-litigated                                                                         |
+| `docs/GLOSSARY.md`     | Domain vocabulary (PPT, OT, DC, HR round, etc.) and the pipeline stages explained                                                              |
+| `docs/STATUS.md`       | Living next-steps punch list                                                                                                                   |
 
 ## Commands
 
@@ -48,11 +48,11 @@ Run a single Vitest file/test: `bunx vitest run src/lib/domain.test.ts -t "retur
 
 **`vite.config.ts`** — a plain, self-owned `defineConfig` (no wrapper package). Composes Tailwind, tsconfig-paths, the TanStack Start plugin, `nitro/vite` (build-only, `node-server` preset), and the React plugin. Every plugin used is a direct `package.json` dependency.
 
-**Supabase client split** — `client.ts` (browser/SSR, anon key, RLS-enforced, used by `events-api.ts`) vs. `client.server.ts` (`supabaseAdmin`, service-role, **bypasses RLS**, only ever dynamic-imported from server route handlers) vs. `auth-middleware.ts`/`auth-attacher.ts` (JWT validation scaffolding, currently unused since the app has no login screen). Getting this split wrong is the easiest way to leak the service-role key into the client bundle.
+**Supabase client split** — `client.ts` (browser/SSR, anon key, RLS-enforced, used by `events-api.ts`) vs. `client.server.ts` (`supabaseAdmin`, service-role, **bypasses RLS**, only ever dynamic-imported from server route handlers) vs. the JWT scaffolding: `auth-attacher.ts` **is** live — it's registered as `functionMiddleware` in `src/start.ts` — while `auth-middleware.ts` genuinely has no importer anywhere. Getting this split wrong is the easiest way to leak the service-role key into the client bundle; it was last verified clean by grepping the built `.output/public/` bundle, which is the only check that actually proves it.
 
 **Routing** — file-based per `src/routes/README.md`. Five pages (`/`, `/board`, `/calendar`, `/list`, `/settings`) share one query key (`["events"]`) and one shared `EventDrawer` for create/edit — there is no `/event/$id` detail route.
 
-**Domain layer** — `src/lib/domain.ts` is the single TS source of truth for the four Postgres enums; `src/lib/events-api.ts` is the *only* data-access layer routes/components should call.
+**Domain layer** — `src/lib/domain.ts` is the single TS source of truth for the four Postgres enums; `src/lib/events-api.ts` is the _only_ data-access layer routes/components should call.
 
 **Reminder pipeline** — `src/lib/reminders.ts` (pure logic) → `src/routes/api/public/run-reminders.ts` (guarded by a `REMINDER_CRON_SECRET` shared-secret header despite the `api/public/` path) → a `pg_cron` job. Full setup runbook in `docs/DEPLOYMENT.md`.
 
@@ -63,3 +63,6 @@ Run a single Vitest file/test: `bunx vitest run src/lib/domain.test.ts -t "retur
 - Path alias `@/*` → `src/*`.
 - Prettier: 100 print width, double quotes, trailing commas everywhere, semicolons on. ESLint delegates formatting to `eslint-plugin-prettier`; `@typescript-eslint/no-unused-vars` is off.
 - `bunfig.toml` enforces a 24h supply-chain delay on new package versions (`minimumReleaseAge`), no exceptions currently configured.
+- **`.gitattributes` pins the working tree to LF** (`* text=auto eol=lf`). Don't remove it — `core.autocrlf=true` on Windows otherwise turns every checkout into thousands of Prettier `Delete ␍` errors. See `docs/DEVELOPMENT.md`.
+- **Two generated files are excluded from Prettier**: `src/routeTree.gen.ts` and `src/integrations/supabase/types.ts`. Reformatting either is undone on the next regen — don't "fix" their lint output.
+- **Ignore globs must be recursive.** `.claude/worktrees/` can hold full repo checkouts with their own `node_modules`; vitest's exclude uses `**/node_modules/**` for this reason. If lint or test output looks absurd, check where the offending files actually live before debugging them.

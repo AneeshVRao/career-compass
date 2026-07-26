@@ -2,7 +2,20 @@
 
 ## Current status
 
-**Deployed.** The app is live on Render at `https://career-compass-nowy.onrender.com` (Blueprint ID `exs-d9h1f1brjlhs73dcb7ag`), built via the `render.yaml` Blueprint. `/`, `/board`, and `/calendar` have been verified to return 200. The cron migration's `<PROD_APP_URL>` placeholder has been filled in with this URL, but the migration still needs to be (re-)run in the Supabase SQL editor to actually schedule the job — see the runbook below.
+**Deployed, but the data layer is broken.** The app is live on Render at `https://career-compass-nowy.onrender.com` (Blueprint ID `exs-d9h1f1brjlhs73dcb7ag`), built via the `render.yaml` Blueprint. All five routes return 200 and the HTML renders — but as of **2026-07-26** the `anon` role has no table privileges on the live Supabase project, so every client-side read and write fails with `42501 permission denied for table events`. The pages serve; they just can't load or save data.
+
+Note what that means for smoke-testing a deploy: **a 200 from a route proves nothing about the database.** These pages SSR fine with a dead data layer. Check an actual REST call instead:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' \
+  "$SUPABASE_URL/rest/v1/events?select=id&limit=1" \
+  -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY"
+```
+
+`200` is healthy. `401` with `42501` is this bug. Full diagnosis and the resolution decision live in `docs/STATUS.md`.
+
+The cron migration's `<PROD_APP_URL>` placeholder has been filled in with this URL, but the migration still needs to be (re-)run in the Supabase SQL editor to actually schedule the job — see the runbook below.
 
 The Supabase project also changed mid-project: the original project (`irzxntglqqwyrvmkxkpy`, provisioned through Lovable Cloud) was replaced with a fresh, self-created project (`iqqkvnjwrgyiigafxsqp`) with no Lovable history at all. The fresh project starts with **no schema** — both migrations in `supabase/migrations/` need to be applied to it before the app will work against it at all (see "Database setup" below). `docs/DATABASE.md` and `docs/DECISIONS.md`'s historical entries still reference the old project ID where they're describing something that happened on it; that's intentional, not a stale reference.
 
@@ -17,7 +30,7 @@ The current Supabase project (`iqqkvnjwrgyiigafxsqp`) is empty. Before anything 
 
 `vite.config.ts` targets nitro's `node-server` preset — a plain, long-running Node HTTP server, produced at `.output/server/index.mjs`. Run it with `bun run start` (which is just `node .output/server/index.mjs`). It honors nitro's default `PORT` env var binding out of the box (verified locally: `PORT=3000 bun run start` serves correctly) — no code changes needed for Render's dynamic port assignment.
 
-This replaced an earlier `cloudflare-module` preset choice. The switch happened because there's no Cloudflare account to deploy to — `node-server` was chosen specifically because it's deployable to *any* host that can run a long-lived Node process: Railway, Render, Fly.io, a plain VPS, a Docker container, etc. **Render was picked** (account already exists).
+This replaced an earlier `cloudflare-module` preset choice. The switch happened because there's no Cloudflare account to deploy to — `node-server` was chosen specifically because it's deployable to _any_ host that can run a long-lived Node process: Railway, Render, Fly.io, a plain VPS, a Docker container, etc. **Render was picked** (account already exists).
 
 ## Render setup
 
@@ -35,15 +48,15 @@ Do not use `bun run preview` (plain `vite preview`) to sanity-check a production
 
 None of these exist anywhere except the local `.env` file right now. Whatever host gets picked needs all of them set as its own environment/secrets:
 
-| Variable | Used by | What breaks without it |
-|---|---|---|
-| `SUPABASE_URL` | `client.ts`, `client.server.ts`, `auth-middleware.ts` | App throws on startup — every Supabase client construction checks for this and errors loudly rather than silently failing |
-| `SUPABASE_PUBLISHABLE_KEY` | `client.ts`, `auth-middleware.ts` | Same as above |
+| Variable                    | Used by                              | What breaks without it                                                                                                                                                        |
+| --------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_URL`              | `client.ts`, `client.server.ts`      | App throws on startup — every Supabase client construction checks for this and errors loudly rather than silently failing                                                     |
+| `SUPABASE_PUBLISHABLE_KEY`  | `client.ts`                          | Same as above                                                                                                                                                                 |
 | `SUPABASE_SERVICE_ROLE_KEY` | `client.server.ts` (`supabaseAdmin`) | The reminder route can't read/write with elevated privileges — it needs this specifically because the reminder job runs with no user session to attach an RLS-scoped token to |
-| `RESEND_API_KEY` | `run-reminders.ts` | Reminder route returns a 500 (`"Missing RESEND_API_KEY"`) before attempting to send anything |
-| `REMINDER_CRON_SECRET` | `run-reminders.ts` | Route fails closed with a 500 (`"REMINDER_CRON_SECRET not configured"`) rather than silently allowing unauthenticated requests through |
+| `RESEND_API_KEY`            | `run-reminders.ts`                   | Reminder route returns a 500 (`"Missing RESEND_API_KEY"`) before attempting to send anything                                                                                  |
+| `REMINDER_CRON_SECRET`      | `run-reminders.ts`                   | Route fails closed with an opaque `401 "Unauthorized"` — identical to a wrong secret, so callers can't probe config state. The real reason is logged server-side              |
 
-`VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the `import.meta.env`-prefixed twins used client-side) also need to be present at *build* time, not just runtime — Vite bakes `VITE_`-prefixed vars into the client bundle at build time, so setting them only in the running server's environment after the fact won't reach the browser.
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the `import.meta.env`-prefixed twins used client-side) also need to be present at _build_ time, not just runtime — Vite bakes `VITE_`-prefixed vars into the client bundle at build time, so setting them only in the running server's environment after the fact won't reach the browser.
 
 ## Reminder cron setup runbook
 

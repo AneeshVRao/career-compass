@@ -4,29 +4,29 @@
 
 ## The concept
 
-The subject is a personal campus-placement season: PPTs, online/offline tests, interview rounds — real scheduled appointments a student must show up for, tracked solo through a high-stakes, anxious few months. The design leans into that directly rather than defaulting to a generic SaaS dashboard look: every event is treated like something you're *issued* — an admit card, a boarding document — something with a stamp, a stub, a specific place and time.
+The subject is a personal campus-placement season: PPTs, online/offline tests, interview rounds — real scheduled appointments a student must show up for, tracked solo through a high-stakes, anxious few months. The design leans into that directly rather than defaulting to a generic SaaS dashboard look: every event is treated like something you're _issued_ — an admit card, a boarding document — something with a stamp, a stub, a specific place and time.
 
-Two generic "AI-default" looks were deliberately avoided: (1) warm cream background + high-contrast serif + terracotta accent, and (2) near-black background + a single bright acid-color accent. This design uses a **navy** ground (not cream), parchment only as a *card surface* (not the page background), and **three** distinct semantic accents (brass, stamp-red, ledger-green) rather than one.
+Two generic "AI-default" looks were deliberately avoided: (1) warm cream background + high-contrast serif + terracotta accent, and (2) near-black background + a single bright acid-color accent. This design uses a **navy** ground (not cream), parchment only as a _card surface_ (not the page background), and **three** distinct semantic accents (brass, stamp-red, ledger-green) rather than one.
 
 ## Color
 
 All colors are defined in `src/styles.css` as OKLCH (the repo's required format), mapped from the hex values below during design. Both hex and OKLCH are listed here since hex is what you'd reach for in a design tool and OKLCH is what's actually in the CSS.
 
-| Name | Hex | OKLCH | Role |
-|---|---|---|---|
-| Ink | `#10162B` | `oklch(0.206 0.043 270.275)` | Page background |
-| Sidebar ink | `#0B0F1F` | `oklch(0.174 0.034 271.851)` | Sidebar — slightly darker than the page, like a book's spine |
-| Ink-lighter | `#1A2340` | `oklch(0.264 0.056 269.301)` | Secondary surfaces, muted/accent backgrounds |
-| Ink-card | `#212B4A` | `oklch(0.296 0.058 269.121)` | Generic `Card` panel surface (not the signature EventCard — see below) |
-| Parchment | `#EDE3C8` | `oklch(0.917 0.037 90.075)` | Foreground text color, and the EventCard's paper surface |
-| Parchment-dim | `#E3D7B8` | `oklch(0.881 0.043 89.367)` | Slightly dimmer parchment variant (currently defined, lightly used) |
-| Graphite | `#2A241C` | `oklch(0.264 0.017 74.882)` | Dark ink text — used on brass/parchment surfaces where light text wouldn't read |
-| Brass | `#B8923A` | `oklch(0.679 0.114 85.195)` | Primary accent — buttons, active nav state, focus ring |
-| Brass-bright | `#D4AF5A` | `oklch(0.770 0.112 86.066)` | Brighter brass for chart bars / high-contrast highlights |
-| Stamp | `#9A2E2E` | `oklch(0.466 0.144 24.652)` | Destructive/urgent/rejected — an actual ink-stamp red, not a bright alert red |
-| Ledger | `#2F6F5E` | `oklch(0.495 0.072 173.266)` | Success/offer accent — a deep bottle-green, not a bright emerald |
-| Ledger-bright | `#3F9280` | `oklch(0.603 0.086 176.810)` | Brighter ledger variant for charts |
-| Border-on-ink | `#3A4468` | `oklch(0.394 0.063 271.457)` | Hairline borders visible against the ink background |
+| Name          | Hex       | OKLCH                        | Role                                                                            |
+| ------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------- |
+| Ink           | `#10162B` | `oklch(0.206 0.043 270.275)` | Page background                                                                 |
+| Sidebar ink   | `#0B0F1F` | `oklch(0.174 0.034 271.851)` | Sidebar — slightly darker than the page, like a book's spine                    |
+| Ink-lighter   | `#1A2340` | `oklch(0.264 0.056 269.301)` | Secondary surfaces, muted/accent backgrounds                                    |
+| Ink-card      | `#212B4A` | `oklch(0.296 0.058 269.121)` | Generic `Card` panel surface (not the signature EventCard — see below)          |
+| Parchment     | `#EDE3C8` | `oklch(0.917 0.037 90.075)`  | Foreground text color, and the EventCard's paper surface                        |
+| Parchment-dim | `#E3D7B8` | `oklch(0.881 0.043 89.367)`  | Slightly dimmer parchment variant (currently defined, lightly used)             |
+| Graphite      | `#2A241C` | `oklch(0.264 0.017 74.882)`  | Dark ink text — used on brass/parchment surfaces where light text wouldn't read |
+| Brass         | `#B8923A` | `oklch(0.679 0.114 85.195)`  | Primary accent — buttons, active nav state, focus ring                          |
+| Brass-bright  | `#D4AF5A` | `oklch(0.770 0.112 86.066)`  | Brighter brass for chart bars / high-contrast highlights                        |
+| Stamp         | `#9A2E2E` | `oklch(0.466 0.144 24.652)`  | Destructive/urgent/rejected — an actual ink-stamp red, not a bright alert red   |
+| Ledger        | `#2F6F5E` | `oklch(0.495 0.072 173.266)` | Success/offer accent — a deep bottle-green, not a bright emerald                |
+| Ledger-bright | `#3F9280` | `oklch(0.603 0.086 176.810)` | Brighter ledger variant for charts                                              |
+| Border-on-ink | `#3A4468` | `oklch(0.394 0.063 271.457)` | Hairline borders visible against the ink background                             |
 
 There is no light/dark toggle anywhere in the app (confirmed by grepping for `classList`/`prefers-color-scheme`/theme-toggle logic — none exists), so this palette lives entirely in `:root`, and `.dark` simply mirrors the same values rather than defining a second theme. If a toggle is ever added, `.dark` in `src/styles.css` is where a genuinely different palette would go.
 
