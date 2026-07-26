@@ -11,12 +11,12 @@ Schema reference for the Supabase/Postgres backend. Source of truth is always `s
 
 ## Enums
 
-| Enum | Values |
-|---|---|
-| `event_type` | `PPT`, `OT_ONLINE`, `OT_OFFLINE`, `INTERVIEW` |
-| `event_mode` | `ONLINE`, `OFFLINE`, `HYBRID` |
-| `event_status` | `UPCOMING`, `PPT_DONE`, `OT_SCHEDULED`, `OT_CLEARED`, `INTERVIEW_R1`, `INTERVIEW_R2`, `HR`, `OFFER`, `REJECTED`, `GHOSTED` |
-| `event_priority` | `LOW`, `MEDIUM`, `HIGH` |
+| Enum             | Values                                                                                                                     |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `event_type`     | `PPT`, `OT_ONLINE`, `OT_OFFLINE`, `INTERVIEW`                                                                              |
+| `event_mode`     | `ONLINE`, `OFFLINE`, `HYBRID`                                                                                              |
+| `event_status`   | `UPCOMING`, `PPT_DONE`, `OT_SCHEDULED`, `OT_CLEARED`, `INTERVIEW_R1`, `INTERVIEW_R2`, `HR`, `OFFER`, `REJECTED`, `GHOSTED` |
+| `event_priority` | `LOW`, `MEDIUM`, `HIGH`                                                                                                    |
 
 Each of these has a TypeScript mirror in `src/lib/domain.ts` (`EventType`, `EventMode`, `EventStatus`, `EventPriority`) plus a generated mirror in `src/integrations/supabase/types.ts`. **All three must move together** — a migration adding an enum value with no matching `domain.ts` update means the UI won't know how to label or color the new value; a `domain.ts` change with no migration means the database will reject inserts of a status that only exists in the frontend's imagination.
 
@@ -24,46 +24,46 @@ The kanban board's left-to-right column order is **not** the enum's declared ord
 
 ## `events` table
 
-| Column | Type | Default | Notes |
-|---|---|---|---|
-| `id` | `uuid` | `gen_random_uuid()` | PK |
-| `company` | `text` | — | required |
-| `type` | `event_type` | — | required |
-| `round` | `text` | — | nullable; only meaningful when `type = 'INTERVIEW'` |
-| `role` | `text` | — | nullable |
-| `start_at` | `timestamptz` | — | required |
-| `end_at` | `timestamptz` | — | nullable |
-| `mode` | `event_mode` | `'ONLINE'` | |
-| `location` | `text` | — | nullable — venue, meet link, or DC name depending on `mode` |
-| `link` | `text` | — | nullable |
-| `status` | `event_status` | `'UPCOMING'` | drives kanban column placement |
-| `priority` | `event_priority` | `'MEDIUM'` | |
-| `ctc` | `text` | — | nullable, free text (e.g. "18 LPA") — deliberately not numeric, since offers get expressed inconsistently |
-| `resume_version` | `text` | — | nullable free-text tag |
-| `contacts` | `jsonb` | `'[]'` | array of `{ name, email?, phone? }` — see `Contact` type in `domain.ts` |
-| `prep_notes` | `text` | — | nullable, markdown |
-| `outcome_notes` | `text` | — | nullable, post-event |
-| `reminder_sent` | `boolean` | `false` | flipped by the reminder route once an email goes out |
-| `reminder_sent_at` | `timestamptz` | — | nullable |
-| `user_id` | `uuid` | `auth.uid()` | FK → `auth.users(id)`, `ON DELETE CASCADE`. Owner of the row; every RLS policy keys off it. Currently **nullable** — see the note below |
-| `created_at` / `updated_at` | `timestamptz` | `now()` | `updated_at` auto-updates via trigger |
+| Column                      | Type             | Default             | Notes                                                                                                                                   |
+| --------------------------- | ---------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                        | `uuid`           | `gen_random_uuid()` | PK                                                                                                                                      |
+| `company`                   | `text`           | —                   | required                                                                                                                                |
+| `type`                      | `event_type`     | —                   | required                                                                                                                                |
+| `round`                     | `text`           | —                   | nullable; only meaningful when `type = 'INTERVIEW'`                                                                                     |
+| `role`                      | `text`           | —                   | nullable                                                                                                                                |
+| `start_at`                  | `timestamptz`    | —                   | required                                                                                                                                |
+| `end_at`                    | `timestamptz`    | —                   | nullable                                                                                                                                |
+| `mode`                      | `event_mode`     | `'ONLINE'`          |                                                                                                                                         |
+| `location`                  | `text`           | —                   | nullable — venue, meet link, or DC name depending on `mode`                                                                             |
+| `link`                      | `text`           | —                   | nullable                                                                                                                                |
+| `status`                    | `event_status`   | `'UPCOMING'`        | drives kanban column placement                                                                                                          |
+| `priority`                  | `event_priority` | `'MEDIUM'`          |                                                                                                                                         |
+| `ctc`                       | `text`           | —                   | nullable, free text (e.g. "18 LPA") — deliberately not numeric, since offers get expressed inconsistently                               |
+| `resume_version`            | `text`           | —                   | nullable free-text tag                                                                                                                  |
+| `contacts`                  | `jsonb`          | `'[]'`              | array of `{ name, email?, phone? }` — see `Contact` type in `domain.ts`                                                                 |
+| `prep_notes`                | `text`           | —                   | nullable, markdown                                                                                                                      |
+| `outcome_notes`             | `text`           | —                   | nullable, post-event                                                                                                                    |
+| `reminder_sent`             | `boolean`        | `false`             | flipped by the reminder route once an email goes out                                                                                    |
+| `reminder_sent_at`          | `timestamptz`    | —                   | nullable                                                                                                                                |
+| `user_id`                   | `uuid`           | `auth.uid()`        | FK → `auth.users(id)`, `ON DELETE CASCADE`. Owner of the row; every RLS policy keys off it. Currently **nullable** — see the note below |
+| `created_at` / `updated_at` | `timestamptz`    | `now()`             | `updated_at` auto-updates via trigger                                                                                                   |
 
 Indexes: `events_start_at_idx` (used by both the calendar/list sort and the reminder window query), `events_status_idx` (used by the kanban board's per-column grouping), `events_user_id_idx` (per-user scoping).
 
-**Why `user_id` is nullable.** The `auth.uid()` default self-scopes *new* inserts, so the client never passes `user_id` — but a default does nothing for rows that already existed when the column was added. Those keep `user_id IS NULL` until the manual backfill runs, and because RLS matches `auth.uid() = user_id`, a NULL-owner row is invisible to every logged-in user (it is not a shared row — it belongs to nobody). The follow-up lockdown migration flips the column to `NOT NULL` once the backfill is done.
+**Why `user_id` is nullable.** The `auth.uid()` default self-scopes _new_ inserts, so the client never passes `user_id` — but a default does nothing for rows that already existed when the column was added. Those keep `user_id IS NULL` until the manual backfill runs, and because RLS matches `auth.uid() = user_id`, a NULL-owner row is invisible to every logged-in user (it is not a shared row — it belongs to nobody). The follow-up lockdown migration flips the column to `NOT NULL` once the backfill is done.
 
 ## `settings` table
 
 **One row per user**, not one row globally — that changed with multi-user auth. A unique index on `user_id` enforces it, and `handle_new_user()` creates the row automatically at signup, so application code never has to insert one. `getSettings()` accordingly dropped its old `.limit(1)`: RLS already narrows the query to the caller's single row, and keeping `.limit(1)` would silently mask a duplicate-row bug rather than surfacing it.
 
-| Column | Type | Default |
-|---|---|---|
-| `id` | `uuid` | `gen_random_uuid()` |
-| `user_id` | `uuid` | `auth.uid()` |
-| `reminder_email` | `text` | `'aneeshvrao2017@gmail.com'` (the signup trigger overrides this with the new user's own email) |
-| `reminders_enabled` | `boolean` | `true` |
-| `from_email` | `text` | `'Placement Tracker <onboarding@resend.dev>'` |
-| `created_at` / `updated_at` | `timestamptz` | `now()` |
+| Column                      | Type          | Default                                                                                        |
+| --------------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
+| `id`                        | `uuid`        | `gen_random_uuid()`                                                                            |
+| `user_id`                   | `uuid`        | `auth.uid()`                                                                                   |
+| `reminder_email`            | `text`        | `'aneeshvrao2017@gmail.com'` (the signup trigger overrides this with the new user's own email) |
+| `reminders_enabled`         | `boolean`     | `true`                                                                                         |
+| `from_email`                | `text`        | `'Placement Tracker <onboarding@resend.dev>'`                                                  |
+| `created_at` / `updated_at` | `timestamptz` | `now()`                                                                                        |
 
 `user_id` is `UNIQUE`, FK → `auth.users(id)` `ON DELETE CASCADE` (deleting a user removes their settings and events), and nullable for the same pre-backfill reason as `events.user_id`. Postgres allows multiple NULLs under a unique index, so ownerless legacy rows coexist with real ones without tripping the constraint.
 
@@ -75,10 +75,10 @@ Indexes: `events_start_at_idx` (used by both the calendar/list sort and the remi
 
 A small key-value table in its own `private` schema (not `public`), created by the second migration. Holds the reminder cron's shared secret so it can be read from inside a `pg_cron` job's SQL body:
 
-| Column | Type |
-|---|---|
-| `key` | `text` (PK) |
-| `value` | `text` |
+| Column  | Type        |
+| ------- | ----------- |
+| `key`   | `text` (PK) |
+| `value` | `text`      |
 
 Exists specifically because Supabase's hosted Postgres refuses `ALTER DATABASE`/`ALTER ROLE ... SET` for custom GUC parameters (`permission denied to set parameter`, requires true superuser) — see `docs/DECISIONS.md` for the full story. No `GRANT` is given to `anon`/`authenticated`, and `private` is never added to PostgREST's exposed-schemas list, so this table is unreachable via the app's normal REST API paths regardless — only direct SQL access (the SQL editor, or a role like `postgres`/`service_role` that owns/bypasses table-level restrictions) can read it. Currently holds exactly one row: `key = 'reminder_cron_secret'`.
 
@@ -86,16 +86,32 @@ Exists specifically because Supabase's hosted Postgres refuses `ALTER DATABASE`/
 
 RLS is **enabled and user-scoped** on both tables. Every policy is `USING (auth.uid() = user_id)`, with a matching `WITH CHECK (auth.uid() = user_id)` on every write, across all four verbs:
 
-| Table | Policies |
-|---|---|
-| `events` | "Users read own events" (SELECT), "Users insert own events" (INSERT), "Users update own events" (UPDATE), "Users delete own events" (DELETE) |
-| `settings` | "Users read own settings", "Users insert own settings", "Users update own settings", "Users delete own settings" |
+| Table      | Policies                                                                                                                                     |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `events`   | "Users read own events" (SELECT), "Users insert own events" (INSERT), "Users update own events" (UPDATE), "Users delete own events" (DELETE) |
+| `settings` | "Users read own settings", "Users insert own settings", "Users update own settings", "Users delete own settings"                             |
 
 These replaced the original `USING (true)` policies from the first migration, which were only defensible while the app was single-user with no login screen.
 
 Grants now: **`anon` has none** — its `SELECT, INSERT, UPDATE, DELETE` on both tables was revoked, because there is no longer a shared dataset for an unauthenticated visitor to legitimately read. `authenticated` keeps all four verbs (RLS narrows them to the caller's own rows). `service_role` keeps `ALL`, which is what lets the reminder cron see every user's rows.
 
 The consequence worth internalising: the anon key still ships in the client bundle by design, but it now grants **nothing** on its own — a session cookie carrying a real user JWT is what unlocks data, and only that user's own rows.
+
+The revoke lives in `20260725120000_multi_user_auth.sql` (lines 74–75), so it replays correctly into a fresh project — the first migration's `GRANT ... TO anon` is deliberately undone by the third rather than edited in place, which keeps the migration history append-only.
+
+**Consequence for pre-auth code**: anything that reads as `anon` now gets `42501 permission denied for table events` against the live project. Confirmed empirically on 2026-07-26. This is correct behaviour, not a fault — but it does mean a build from before the auth work cannot talk to this database at all.
+
+### Telling a GRANT failure apart from an RLS failure
+
+Worth knowing, because the two look similar from the app and have completely different fixes — and with user-scoped RLS you can now hit either:
+
+| Symptom                                                | Cause                                                         | Fix                                         |
+| ------------------------------------------------------ | ------------------------------------------------------------- | ------------------------------------------- |
+| `200` with `[]`                                        | RLS policy matched no rows — wrong user, or `user_id IS NULL` | Fix ownership, or sign in as the right user |
+| `401`/`403` with `42501 permission denied for table X` | The role has no table-level `GRANT`                           | `GRANT ... TO <role>`                       |
+| `401` with `Invalid API key`                           | Bad or rotated key                                            | Fix the key                                 |
+
+RLS silently filters; a missing GRANT refuses outright. If you see `42501`, stop looking at policies — the query never got far enough to reach them.
 
 ## Extensions
 

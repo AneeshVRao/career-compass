@@ -2,7 +2,20 @@
 
 ## Current status
 
-**Fully live, reminders included.** The app is on Render at `https://career-compass-nowy.onrender.com` (Blueprint ID `exs-d9h1f1brjlhs73dcb7ag`), built via the `render.yaml` Blueprint. `/`, `/board`, and `/calendar` return 200. The reminder cron is scheduled and verified end-to-end — see the runbook below.
+**Deployed and the reminder cron is live — but the data layer is broken.** The app is on Render at `https://career-compass-nowy.onrender.com` (Blueprint ID `exs-d9h1f1brjlhs73dcb7ag`), built via the `render.yaml` Blueprint. All five routes return 200, and the reminder cron is scheduled and verified end-to-end (see the runbook below).
+
+What is _not_ working: as of **2026-07-26** the `anon` role has no table privileges on the live Supabase project, so every client-side read and write fails with `42501 permission denied for table events`. The pages serve; they just can't load or save data. Note the reminder job is unaffected — it runs with the service-role key, which still has full access, so a healthy cron says nothing about whether the app itself can reach the database.
+
+Note what that means for smoke-testing a deploy: **a 200 from a route proves nothing about the database.** These pages SSR fine with a dead data layer. Check an actual REST call instead:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' \
+  "$SUPABASE_URL/rest/v1/events?select=id&limit=1" \
+  -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY"
+```
+
+`200` is healthy. `401` with `42501` is this bug. Full diagnosis and the resolution decision live in `docs/STATUS.md`.
 
 The Supabase project also changed mid-project: the original project (`irzxntglqqwyrvmkxkpy`, provisioned through Lovable Cloud) was replaced with a fresh, self-created project (`iqqkvnjwrgyiigafxsqp`) with no Lovable history at all. The fresh project starts with **no schema** — both migrations in `supabase/migrations/` need to be applied to it before the app will work against it at all (see "Database setup" below). `docs/DATABASE.md` and `docs/DECISIONS.md`'s historical entries still reference the old project ID where they're describing something that happened on it; that's intentional, not a stale reference.
 
@@ -19,7 +32,7 @@ The current Supabase project (`iqqkvnjwrgyiigafxsqp`) is empty. Before anything 
 
 `vite.config.ts` targets nitro's `node-server` preset — a plain, long-running Node HTTP server, produced at `.output/server/index.mjs`. Run it with `bun run start` (which is just `node .output/server/index.mjs`). It honors nitro's default `PORT` env var binding out of the box (verified locally: `PORT=3000 bun run start` serves correctly) — no code changes needed for Render's dynamic port assignment.
 
-This replaced an earlier `cloudflare-module` preset choice. The switch happened because there's no Cloudflare account to deploy to — `node-server` was chosen specifically because it's deployable to *any* host that can run a long-lived Node process: Railway, Render, Fly.io, a plain VPS, a Docker container, etc. **Render was picked** (account already exists).
+This replaced an earlier `cloudflare-module` preset choice. The switch happened because there's no Cloudflare account to deploy to — `node-server` was chosen specifically because it's deployable to _any_ host that can run a long-lived Node process: Railway, Render, Fly.io, a plain VPS, a Docker container, etc. **Render was picked** (account already exists).
 
 ## Render setup
 
@@ -37,15 +50,15 @@ Do not use `bun run preview` (plain `vite preview`) to sanity-check a production
 
 None of these exist anywhere except the local `.env` file right now. Whatever host gets picked needs all of them set as its own environment/secrets:
 
-| Variable | Used by | What breaks without it |
-|---|---|---|
-| `SUPABASE_URL` | `client.ts`, `client.server.ts`, `client.request.server.ts` | App throws on startup — every Supabase client construction checks for this and errors loudly rather than silently failing |
-| `SUPABASE_PUBLISHABLE_KEY` | `client.ts`, `client.request.server.ts` | Same as above |
-| `SUPABASE_SERVICE_ROLE_KEY` | `client.server.ts` (`supabaseAdmin`) | The reminder route can't read/write with elevated privileges — it needs this specifically because the reminder job runs with no user session to attach an RLS-scoped token to |
-| `RESEND_API_KEY` | `run-reminders.ts` | Reminder route returns a 500 (`"Missing RESEND_API_KEY"`) before attempting to send anything |
-| `REMINDER_CRON_SECRET` | `run-reminders.ts` | Route fails closed with a 500 (`"REMINDER_CRON_SECRET not configured"`) rather than silently allowing unauthenticated requests through |
+| Variable                    | Used by                                                     | What breaks without it                                                                                                                                                        |
+| --------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_URL`              | `client.ts`, `client.server.ts`, `client.request.server.ts` | App throws on startup — every Supabase client construction checks for this and errors loudly rather than silently failing                                                     |
+| `SUPABASE_PUBLISHABLE_KEY`  | `client.ts`, `client.request.server.ts`                     | Same as above                                                                                                                                                                 |
+| `SUPABASE_SERVICE_ROLE_KEY` | `client.server.ts` (`supabaseAdmin`)                        | The reminder route can't read/write with elevated privileges — it needs this specifically because the reminder job runs with no user session to attach an RLS-scoped token to |
+| `RESEND_API_KEY`            | `run-reminders.ts`                                          | Reminder route returns a 500 (`"Missing RESEND_API_KEY"`) before attempting to send anything                                                                                  |
+| `REMINDER_CRON_SECRET`      | `run-reminders.ts`                                          | Route fails closed with an opaque `401 "Unauthorized"` — identical to a wrong secret, so callers can't probe config state. The real reason is logged server-side              |
 
-`VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the `import.meta.env`-prefixed twins used client-side) also need to be present at *build* time, not just runtime — Vite bakes `VITE_`-prefixed vars into the client bundle at build time, so setting them only in the running server's environment after the fact won't reach the browser.
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the `import.meta.env`-prefixed twins used client-side) also need to be present at _build_ time, not just runtime — Vite bakes `VITE_`-prefixed vars into the client bundle at build time, so setting them only in the running server's environment after the fact won't reach the browser.
 
 **Multi-user auth added no new environment variables.** This was verified deliberately, since it's the kind of thing that silently breaks a deploy:
 
@@ -59,15 +72,15 @@ So `render.yaml`'s existing 7 `sync: false` vars remain correct and complete. Th
 
 Dashboard-only; there is no CLI/API path to Supabase in this environment (see the note at the end of this file). Do this **before** expecting the "Sign in with Google" button to work — until it's done, that button returns a provider-not-enabled error while email/password sign-in works fine.
 
-1. **Create the Google OAuth client.** In the [Google Cloud console](https://console.cloud.google.com/) → *APIs & Services* → *Credentials* → **Create credentials** → **OAuth client ID** → application type **Web application**.
-   - *Authorised JavaScript origins*: `http://localhost:8080` and `https://career-compass-nowy.onrender.com`.
-   - *Authorised redirect URI*: **the Supabase callback, not the app's** — `https://iqqkvnjwrgyiigafxsqp.supabase.co/auth/v1/callback`. This is the single most common thing to get wrong: Google redirects to Supabase, Supabase then redirects to the app's `/auth/callback`.
+1. **Create the Google OAuth client.** In the [Google Cloud console](https://console.cloud.google.com/) → _APIs & Services_ → _Credentials_ → **Create credentials** → **OAuth client ID** → application type **Web application**.
+   - _Authorised JavaScript origins_: `http://localhost:8080` and `https://career-compass-nowy.onrender.com`.
+   - _Authorised redirect URI_: **the Supabase callback, not the app's** — `https://iqqkvnjwrgyiigafxsqp.supabase.co/auth/v1/callback`. This is the single most common thing to get wrong: Google redirects to Supabase, Supabase then redirects to the app's `/auth/callback`.
    - Copy the generated **Client ID** and **Client secret**.
-2. **Enable the provider in Supabase.** Dashboard for project `iqqkvnjwrgyiigafxsqp` → *Authentication* → *Providers* → **Google** → toggle on, paste the Client ID and Client secret, save.
-3. **Set the URL configuration.** *Authentication* → *URL Configuration*:
+2. **Enable the provider in Supabase.** Dashboard for project `iqqkvnjwrgyiigafxsqp` → _Authentication_ → _Providers_ → **Google** → toggle on, paste the Client ID and Client secret, save.
+3. **Set the URL configuration.** _Authentication_ → _URL Configuration_:
    - **Site URL**: `https://career-compass-nowy.onrender.com` (this is where Supabase sends users when a redirect target isn't otherwise specified, and it's what email-confirmation links point at).
-   - **Redirect URLs** (allowlist — an unlisted URL is silently refused): add both `http://localhost:8080/auth/callback` and `https://career-compass-nowy.onrender.com/auth/callback`. The app passes `redirectTo: ${window.location.origin}/auth/callback`, so both origins need listing to work in dev *and* prod.
-4. **Decide the email-confirmation setting.** *Authentication* → *Providers* → *Email* → "Confirm email". Signup is open (anyone can create an account), so leaving confirmation **on** is the recommended posture — it stops someone enrolling with an address they don't control. The `/login` page handles both settings: with confirmation on, sign-up shows a "check your email" notice and no session is issued until the link is clicked; with it off, sign-up signs the user straight in.
+   - **Redirect URLs** (allowlist — an unlisted URL is silently refused): add both `http://localhost:8080/auth/callback` and `https://career-compass-nowy.onrender.com/auth/callback`. The app passes `redirectTo: ${window.location.origin}/auth/callback`, so both origins need listing to work in dev _and_ prod.
+4. **Decide the email-confirmation setting.** _Authentication_ → _Providers_ → _Email_ → "Confirm email". Signup is open (anyone can create an account), so leaving confirmation **on** is the recommended posture — it stops someone enrolling with an address they don't control. The `/login` page handles both settings: with confirmation on, sign-up shows a "check your email" notice and no session is issued until the link is clicked; with it off, sign-up signs the user straight in.
 5. **Verify.** Visit `/login` on both localhost and the Render URL, click "Sign in with Google", complete the Google consent screen, and confirm you land on `/` signed in with your email shown in the sidebar. A brand-new Google account should also get a `settings` row automatically (via the `handle_new_user()` trigger) — check `/settings` renders populated rather than erroring.
 
 ## Multi-user data backfill runbook
@@ -78,11 +91,11 @@ Dashboard-only; there is no CLI/API path to Supabase in this environment (see th
 2. **Run the backfill below by hand.**
 3. Only then run `supabase/migrations/20260725120100_lockdown_user_id_not_null.sql`.
 
-Why the gap: `user_id`'s `auth.uid()` default stamps an owner on *new* inserts, but does nothing for the rows that already existed. Those keep `user_id IS NULL`, and since every RLS policy matches `auth.uid() = user_id`, **they are invisible to every logged-in user until claimed** — including to you. Existing data isn't lost, just unowned. The lockdown migration deliberately fails with a NOT NULL violation if you skip step 2, rather than letting the inconsistency persist.
+Why the gap: `user_id`'s `auth.uid()` default stamps an owner on _new_ inserts, but does nothing for the rows that already existed. Those keep `user_id IS NULL`, and since every RLS policy matches `auth.uid() = user_id`, **they are invisible to every logged-in user until claimed** — including to you. Existing data isn't lost, just unowned. The lockdown migration deliberately fails with a NOT NULL violation if you skip step 2, rather than letting the inconsistency persist.
 
 Steps, in the Supabase SQL editor for project `iqqkvnjwrgyiigafxsqp`:
 
-1. **Create your own account first**, via the app's `/login` page (email/password or Google). The backfill needs a real `auth.users` row to point at. This also fires `handle_new_user()`, which creates a *fresh* settings row for you — which matters in step 4.
+1. **Create your own account first**, via the app's `/login` page (email/password or Google). The backfill needs a real `auth.users` row to point at. This also fires `handle_new_user()`, which creates a _fresh_ settings row for you — which matters in step 4.
 2. **Find your user ID**, substituting your address:
    ```sql
    select id, email from auth.users where email = 'aneeshvrao2017@gmail.com';
