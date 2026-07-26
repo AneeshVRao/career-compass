@@ -25,8 +25,12 @@ function isAuthorized(request: Request): boolean {
 }
 
 async function guardedRunReminders(request: Request) {
+  // An unauthenticated caller learns nothing about our configuration: a missing
+  // secret and a wrong secret are indistinguishable from outside. The operator
+  // still gets the real reason in the server log.
   if (!process.env.REMINDER_CRON_SECRET) {
-    return json({ ok: false, error: "REMINDER_CRON_SECRET not configured" }, 500);
+    console.error("run-reminders: REMINDER_CRON_SECRET is not configured; refusing all requests");
+    return json({ ok: false, error: "Unauthorized" }, 401);
   }
   if (!isAuthorized(request)) {
     return json({ ok: false, error: "Unauthorized" }, 401);
@@ -94,10 +98,26 @@ async function runReminders() {
         continue;
       }
 
-      await supabaseAdmin
+      // ponytail: send-then-mark. Sequential cron runs are deduped by the
+      // reminder_sent filter above; two *overlapping* runs could double-send.
+      // Swap for an atomic `update ... where reminder_sent = false returning *`
+      // claim before sending if the job ever runs concurrently.
+      const { error: markError } = await supabaseAdmin
         .from("events")
         .update({ reminder_sent: true, reminder_sent_at: new Date().toISOString() })
         .eq("id", ev.id);
+
+      if (markError) {
+        // The email already went out. Swallowing this would silently re-send it
+        // on every subsequent run until the event leaves the window.
+        results.push({
+          id: ev.id,
+          company: ev.company,
+          sent: true,
+          error: `Sent but not marked, will re-send: ${markError.message}`,
+        });
+        continue;
+      }
 
       results.push({ id: ev.id, company: ev.company, sent: true });
     } catch (e) {
