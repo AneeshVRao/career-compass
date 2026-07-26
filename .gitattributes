@@ -1,0 +1,11 @@
+# Keep the working tree LF on every platform. Without this, core.autocrlf=true
+# (the Windows default) rewrites files to CRLF on checkout, and prettier — which
+# defaults to endOfLine:"lf" — then flags every single line of every file.
+# A rebase or branch switch was enough to bury real lint output under thousands
+# of "Delete ␍" errors.
+* text=auto eol=lf
+
+# Generated / vendored: keep out of diffs and language stats.
+bun.lock            -diff linguist-generated
+src/routeTree.gen.ts        linguist-generated
+src/integrations/supabase/types.ts  linguist-generated
