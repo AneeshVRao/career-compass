@@ -139,7 +139,22 @@ describe("POST /api/public/run-reminders — authorization", () => {
   it("refuses to run at all when no secret is configured on the server", async () => {
     vi.stubEnv("REMINDER_CRON_SECRET", "");
     const res = await post({ "x-reminder-cron-secret": "anything" });
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("looks identical from outside whether the secret is missing or just wrong", async () => {
+    // The point of the 401: an anonymous caller must not be able to probe
+    // whether REMINDER_CRON_SECRET is configured. Both paths have to be
+    // byte-for-byte the same response.
+    const wrong = await post({ "x-reminder-cron-secret": "not-the-secret" });
+    const wrongBody = await wrong.text();
+
+    vi.stubEnv("REMINDER_CRON_SECRET", "");
+    const unconfigured = await post({ "x-reminder-cron-secret": "not-the-secret" });
+
+    expect(unconfigured.status).toBe(wrong.status);
+    expect(await unconfigured.text()).toBe(wrongBody);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
