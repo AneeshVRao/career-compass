@@ -18,8 +18,31 @@
 // the same timezone, so one configured zone is the correct model — not per-user
 // zones, and not the viewer's local zone. Override with VITE_DISPLAY_TIME_ZONE if
 // that ever stops being true.
-export const DISPLAY_TIME_ZONE =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_DISPLAY_TIME_ZONE) || "Asia/Kolkata";
+export const DISPLAY_TIME_ZONE = resolveTimeZone(
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_DISPLAY_TIME_ZONE) || undefined,
+);
+
+/**
+ * Validates the configured zone at module load.
+ *
+ * `Intl.DateTimeFormat` throws a `RangeError` on an unknown zone, and without
+ * this that throw would surface from inside a component render on the first card
+ * that tried to show a date — a blank page and a stack trace pointing at React,
+ * for what is really a typo in an env var. Fail here instead, naming the culprit.
+ */
+function resolveTimeZone(configured: string | undefined): string {
+  const fallback = "Asia/Kolkata";
+  if (!configured) return fallback;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: configured });
+    return configured;
+  } catch {
+    throw new Error(
+      `VITE_DISPLAY_TIME_ZONE is not a valid IANA time zone: "${configured}". ` +
+        `Expected something like "${fallback}" or "Europe/London".`,
+    );
+  }
+}
 
 // Intl.DateTimeFormat construction is the expensive part; the formatting itself is
 // cheap. These render once per card per list, so the cache matters.
@@ -168,8 +191,15 @@ export function fromZonedInputValue(value: string): string {
   // Interpret the wall-clock fields as if they were UTC, then correct by the
   // offset the display zone was actually at around that time.
   const asUtc = new Date(`${value}:00.000Z`);
-  const offsetMs = zoneOffsetMs(asUtc);
-  return new Date(asUtc.getTime() - offsetMs).toISOString();
+
+  // Two passes. The first offset is sampled at `asUtc`, which is up to a full
+  // offset away from the real instant — near a DST transition that can land on
+  // the wrong side of the change and be off by an hour. Re-sampling at the
+  // corrected instant converges, since the second sample is at most seconds from
+  // the true answer. IST has no DST so this is a no-op here, but the function
+  // should not quietly depend on that.
+  const firstPass = new Date(asUtc.getTime() - zoneOffsetMs(asUtc));
+  return new Date(asUtc.getTime() - zoneOffsetMs(firstPass)).toISOString();
 }
 
 /** How far ahead of UTC the display zone is at a given instant, in milliseconds. */

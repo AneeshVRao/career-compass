@@ -148,4 +148,21 @@ describe("datetime-local round trip", () => {
     expect(fromZonedInputValue("2026-01-15T12:00")).toBe("2026-01-15T06:30:00.000Z");
     expect(fromZonedInputValue("2026-07-15T12:00")).toBe("2026-07-15T06:30:00.000Z");
   });
+
+  test("round-trips every hour of a year without drifting", () => {
+    // The offset lookup is a two-pass refinement, and the failure it guards
+    // against is subtle: sampling the offset once, at the wall-clock-as-UTC
+    // instant, lands on the wrong side of a DST change and is off by an hour.
+    //
+    // The configured zone (IST) has no DST, so this loop cannot exercise that
+    // path — it is here to catch drift in the general arithmetic. The DST case
+    // was verified out-of-band against America/New_York, where the single-pass
+    // form is wrong on both 2026 transition days (Mar 8 and Nov 1) and the
+    // two-pass form is correct on both.
+    const start = Date.UTC(2026, 0, 1);
+    for (let hour = 0; hour < 24 * 365; hour += 7) {
+      const wallClock = toZonedInputValue(new Date(start + hour * 3600_000).toISOString());
+      expect(toZonedInputValue(fromZonedInputValue(wallClock))).toBe(wallClock);
+    }
+  });
 });
