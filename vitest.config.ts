@@ -11,7 +11,15 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
-      include: ["src/lib/domain.ts", "src/lib/reminders.ts", "src/lib/events-api.ts"],
+      include: [
+        "src/lib/domain.ts",
+        "src/lib/reminders.ts",
+        "src/lib/events-api.ts",
+        "src/lib/datetime.ts",
+        // The one file that sends real email to real people — the threshold should
+        // actually enforce its coverage rather than leaving it implicitly exempt.
+        "src/routes/api/public/run-reminders.ts",
+      ],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
   },

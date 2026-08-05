@@ -7,6 +7,7 @@ import {
   reminderWindow,
   renderReminderEmail,
 } from "@/lib/reminders";
+import { formatTime } from "@/lib/datetime";
 
 export const Route = createFileRoute("/api/public/run-reminders")({
   server: {
@@ -84,7 +85,9 @@ async function runReminders() {
     try {
       const start = new Date(ev.start_at);
       const html = renderReminderEmail(ev, start);
-      const subject = `Reminder: ${ev.company} ${labelType(ev.type)} tomorrow at ${start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+      // Zone-pinned like the email body: this runs on a UTC server, so the plain
+      // `toLocaleTimeString()` here put the wrong time in every subject line.
+      const subject = `Reminder: ${ev.company} ${labelType(ev.type)} tomorrow at ${formatTime(start)}`;
 
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",

@@ -1,3 +1,5 @@
+import { formatEmailWhen } from "./datetime";
+
 export function reminderWindow(now: Date = new Date()): { start: Date; end: Date } {
   return {
     start: new Date(now.getTime() + 23 * 3600 * 1000),
@@ -66,13 +68,9 @@ export function planReminderSends<
 }
 
 export function renderReminderEmail(ev: ReminderEvent, start: Date): string {
-  const when = start.toLocaleString([], {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  // Pinned to the display zone, not the host's. This runs on Render, which is UTC,
+  // so `toLocaleString()` here used to state the wrong time in every email sent.
+  const when = formatEmailWhen(start);
   const rows = [
     ["Company", ev.company],
     ["Type", labelType(ev.type)],

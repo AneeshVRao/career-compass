@@ -13,6 +13,10 @@ import {
   addMonths,
 } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+// `format` above stays for the grid itself: `cursor` and `day` are local-field
+// Dates seeded from `todayInZone`, so that math is already zone-pinned. Only the
+// event instants need converting.
+import { formatTime, formatTime24, todayInZone, zonedDayKey } from "@/lib/datetime";
 import { AppShell } from "@/components/AppShell";
 import { EventDrawer } from "@/components/EventDrawer";
 import { listEvents } from "@/lib/events-api";
@@ -34,7 +38,9 @@ export const Route = createFileRoute("/calendar")({
 });
 
 function CalendarView() {
-  const [cursor, setCursor] = useState(new Date());
+  // The grid is built from local date fields, so seed the cursor with the display
+  // zone's calendar day rather than the rendering machine's.
+  const [cursor, setCursor] = useState(todayInZone);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<EventRow | null>(null);
   const { data: events = [] } = useQuery({ queryKey: ["events"], queryFn: listEvents });
@@ -54,7 +60,9 @@ function CalendarView() {
   const byDay = useMemo(() => {
     const m = new Map<string, EventRow[]>();
     for (const e of events) {
-      const k = format(new Date(e.start_at), "yyyy-MM-dd");
+      // Zone-pinned: `format` here would read the host's local fields, so a late
+      // evening event landed in a different cell on the server than the client.
+      const k = zonedDayKey(e.start_at);
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(e);
     }
@@ -80,7 +88,7 @@ function CalendarView() {
             <Button variant="outline" size="icon" onClick={() => setCursor(addMonths(cursor, -1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setCursor(new Date())}>
+            <Button variant="outline" size="sm" onClick={() => setCursor(todayInZone())}>
               Today
             </Button>
             <Button variant="outline" size="icon" onClick={() => setCursor(addMonths(cursor, 1))}>
@@ -102,7 +110,7 @@ function CalendarView() {
               const key = format(day, "yyyy-MM-dd");
               const dayEvents = byDay.get(key) ?? [];
               const inMonth = isSameMonth(day, cursor);
-              const today = isSameDay(day, new Date());
+              const today = isSameDay(day, todayInZone());
               return (
                 <div
                   key={key}
@@ -131,9 +139,9 @@ function CalendarView() {
                           "text-[10px] px-1.5 py-0.5 rounded border truncate text-left",
                           TYPE_COLORS[e.type],
                         )}
-                        title={`${e.company} · ${typeLabel(e.type)} · ${format(new Date(e.start_at), "h:mm a")}`}
+                        title={`${e.company} · ${typeLabel(e.type)} · ${formatTime(e.start_at)}`}
                       >
-                        {format(new Date(e.start_at), "H:mm")} {e.company}
+                        {formatTime24(e.start_at)} {e.company}
                       </button>
                     ))}
                     {dayEvents.length > 3 && (

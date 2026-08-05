@@ -28,6 +28,7 @@ import {
   type Contact,
 } from "@/lib/domain";
 import { createEvent, deleteEvent, updateEvent } from "@/lib/events-api";
+import { fromZonedInputValue, toZonedInputValue } from "@/lib/datetime";
 
 type Props = {
   open: boolean;
@@ -36,16 +37,15 @@ type Props = {
   defaultStatus?: EventStatus;
 };
 
+// Both sides of the form round-trip through the display zone, so the value the
+// drawer shows matches the value every card shows. The previous pair read the
+// *browser's* offset, which meant editing an event from another zone silently
+// rewrote its start time.
 function toLocalInput(iso: string | null | undefined) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const off = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - off * 60000);
-  return local.toISOString().slice(0, 16);
+  return iso ? toZonedInputValue(iso) : "";
 }
 function fromLocalInput(v: string) {
-  if (!v) return null;
-  return new Date(v).toISOString();
+  return v ? fromZonedInputValue(v) : null;
 }
 
 export function EventDrawer({ open, onOpenChange, event, defaultStatus }: Props) {

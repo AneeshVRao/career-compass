@@ -1,14 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import {
-  format,
-  isAfter,
-  isBefore,
-  addDays,
-  startOfDay,
-  formatDistanceToNowStrict,
-} from "date-fns";
+import { isAfter, isBefore, addDays, startOfDay, formatDistanceToNowStrict } from "date-fns";
+import { formatHeaderDate, formatLongDateTime } from "@/lib/datetime";
 import { AppShell } from "@/components/AppShell";
 import { EventDrawer } from "@/components/EventDrawer";
 import { EventCard } from "@/components/EventCard";
@@ -112,7 +106,7 @@ function Dashboard() {
         <header className="mb-6 flex items-baseline justify-between flex-wrap gap-2">
           <div>
             <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-brass mb-1">
-              {format(now, "EEEE, MMM d")}
+              {formatHeaderDate(now)}
             </p>
             <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight">
               Season Overview
@@ -155,7 +149,7 @@ function Dashboard() {
                   {formatDistanceToNowStrict(new Date(nextEvent.start_at))}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {format(new Date(nextEvent.start_at), "EEE, MMM d · h:mm a")}
+                  {formatLongDateTime(nextEvent.start_at)}
                 </div>
               </div>
             </button>

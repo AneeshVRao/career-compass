@@ -1,6 +1,6 @@
-import { format } from "date-fns";
 import { Clock, MapPin, Link as LinkIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatCardDateTime } from "@/lib/datetime";
 import { TYPE_COLORS, typeLabel, type EventRow } from "@/lib/domain";
 
 export function EventCard({
@@ -56,7 +56,7 @@ export function EventCard({
           <div className="mt-2.5 pt-2 border-t border-dashed border-graphite/20 flex flex-col gap-1 text-[11px] font-mono text-graphite/65">
             <div className="flex items-center gap-1.5">
               <Clock className="h-3 w-3 shrink-0" />
-              {format(new Date(event.start_at), "MMM d · h:mm a")}
+              {formatCardDateTime(event.start_at)}
             </div>
             {event.location && (
               <div className="flex items-center gap-1.5 truncate">
