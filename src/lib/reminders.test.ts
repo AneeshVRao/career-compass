@@ -71,6 +71,16 @@ describe("renderReminderEmail", () => {
     expect(html).not.toContain("Link");
   });
 
+  it("states the time in the display zone, not the sending server's", () => {
+    // The regression that shipped: this runs on Render, which is UTC, so the old
+    // `toLocaleString()` rendered "3:30 PM" for a 9:00 PM IST interview — every
+    // reminder email named a time five and a half hours off, and no test caught
+    // it because none of them asserted the "When" row at all.
+    const html = renderReminderEmail(base, start);
+    expect(html).toContain("Thursday, Jul 23, 9:00 PM");
+    expect(html).not.toContain("3:30 PM");
+  });
+
   it("includes optional fields when present, and escapes user content", () => {
     const html = renderReminderEmail(
       {

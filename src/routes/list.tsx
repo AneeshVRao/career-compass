@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { format } from "date-fns";
+import { formatListDateTime } from "@/lib/datetime";
 import { AppShell } from "@/components/AppShell";
 import { EventDrawer } from "@/components/EventDrawer";
 import { listEvents } from "@/lib/events-api";
@@ -105,7 +105,7 @@ function ListView() {
                       {[e.round, e.role].filter(Boolean).join(" · ") || "—"}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">
-                      {format(new Date(e.start_at), "MMM d, h:mm a")}
+                      {formatListDateTime(e.start_at)}
                     </td>
                     <td className="px-3 py-2">
                       <span className="inline-flex items-center gap-1.5 font-mono text-xs">
