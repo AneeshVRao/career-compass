@@ -33,8 +33,16 @@ function adminHeaders(): { url: string; headers: Record<string, string> } | null
   };
 }
 
+// NOT `@example.com`. Supabase's *public* signup endpoint rejects it outright with
+// `email_address_invalid` because it is an RFC-2606 reserved domain, so any spec
+// driving the real signup form fails on the address before it tests anything. The
+// admin API has no such check, which is why the admin-created users never hit this
+// and the difference went unnoticed. This domain is deliberately unregistered:
+// well-formed enough to pass validation, and guaranteed not to reach a real inbox.
+const TEST_EMAIL_DOMAIN = "e2e-placement-tracker.invalid-test.dev";
+
 export function uniqueTestEmail(label = ""): string {
-  return `${TEST_TAG}+${label}${Date.now()}${Math.random().toString(36).slice(2, 7)}@example.com`;
+  return `${TEST_TAG}+${label}${Date.now()}${Math.random().toString(36).slice(2, 7)}@${TEST_EMAIL_DOMAIN}`;
 }
 
 // Creates an already-confirmed account via the admin API. Going through the admin
