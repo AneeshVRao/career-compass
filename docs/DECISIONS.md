@@ -2,6 +2,18 @@
 
 A short log of non-obvious calls made and why, so a future session doesn't have to re-litigate them from scratch. Newest first. Dates are when the decision was made, not necessarily when it shipped.
 
+## 2026-08-05 — One pinned display timezone, not the viewer's local zone
+
+**Decision**: every instant the app renders goes through `src/lib/datetime.ts`, which formats in a single configured zone (`VITE_DISPLAY_TIME_ZONE`, default `Asia/Kolkata`). The alternative — render in each viewer's local zone, and suppress the SSR mismatch by formatting only after mount — was rejected.
+
+**Why**: two bugs shared one root cause, and only a pinned zone fixes both. The known one was hydration: `format(new Date(iso), …)` inside an SSR'd component renders in the server's zone (Render is UTC) and the browser's on the client, so every card flashed the wrong time and `/calendar` bucketed late-evening events into the wrong day cell until the client took over. The one nobody had noticed is that **reminder emails stated the wrong time**: `run-reminders.ts` runs on that same UTC server, so a 21:00 IST interview went out as "3:30 PM". Client-only formatting would have fixed the flash and left the emails broken, because there is no client involved in sending an email — the email needs a zone chosen deliberately, and once you have chosen one, having the UI disagree with it is worse than either.
+
+Per-user zones were considered and rejected as modelling the wrong thing: a placement season happens at one campus, in one timezone, and every event in the database is a physical event there. A user travelling abroad should still see the times their interviews actually happen at, not times shifted into wherever they are sitting.
+
+**Consequence**: `EventDrawer`'s `datetime-local` round-trip changed too — it previously used `getTimezoneOffset()`, i.e. the _browser's_ offset, so editing an event from a machine in another zone silently rewrote its start time. It now round-trips through the same zone as the display. Calendar grid math still uses date-fns on local-field Dates, but those are seeded from `todayInZone()` so they stay deterministic.
+
+**Note**: no test asserted the "When" row of a reminder email, which is how the wrong-time bug shipped unnoticed. There is now a test that pins it explicitly.
+
 ## 2026-07-26 — Pin the working tree to LF with `.gitattributes` rather than re-running Prettier
 
 **Decision**: added `.gitattributes` with `* text=auto eol=lf`, instead of keeping the documented "just run `bunx prettier --write` on the file" workaround for CRLF lint noise.
